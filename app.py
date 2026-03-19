@@ -1,3 +1,12 @@
+# ============================================================
+#  Copyright (c) 2024 (주)아이팝엔지니어링
+#  All rights reserved.
+#  본 소프트웨어는 (주)아이팝엔지니어링의 지적 재산입니다.
+#  무단 복제, 배포, 수정을 금지합니다.
+#  Unauthorized copying, distribution, or modification
+#  of this software is strictly prohibited.
+# ============================================================
+
 import streamlit as st
 import pandas as pd
 from fpdf import FPDF
@@ -6,6 +15,76 @@ from datetime import datetime  # 에러 원인 완벽 복구
 
 st.set_page_config(page_title="사업승인 체크 v7.5_Boss", layout="wide")
 font_path = "fonts/NanumGothic.ttf"
+
+# ── 도메인 잠금: salgi-bot.github.io 이외 접근 차단 ──────────────────
+_ALLOWED_DOMAIN = "salgi-bot.github.io"
+try:
+    import streamlit.components.v1 as _stc
+    _domain_check_html = f"""
+    <script>
+    (function(){{
+        var host = window.location.hostname;
+        if (host !== "" && host !== "localhost" && host !== "127.0.0.1" && !host.endsWith("{_ALLOWED_DOMAIN}")) {{
+            document.body.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;'>"
+                + "<div style='text-align:center;color:#c00;'>"
+                + "<h2>⛔ 접근 제한</h2>"
+                + "<p>이 서비스는 허가된 도메인에서만 사용 가능합니다.</p>"
+                + "<p>Copyright &copy; (주)아이팝엔지니어링</p>"
+                + "</div></div>";
+            document.head.innerHTML = "";
+        }}
+    }})();
+    </script>
+    """
+    _stc.html(_domain_check_html, height=0)
+except Exception:
+    pass
+# ──────────────────────────────────────────────────────────────────────
+
+# ── Footer 워터마크 (JS 동적 생성) ─────────────────────────────────────
+_footer_html = """
+<style>
+#copyright-footer {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(255,255,255,0.92);
+    border-top: 1px solid #ddd;
+    text-align: center;
+    padding: 6px 0;
+    font-size: 12px;
+    color: #888;
+    z-index: 9999;
+    pointer-events: none;
+}
+</style>
+<script>
+(function(){
+    function injectFooter(){
+        if(document.getElementById('copyright-footer')) return;
+        var el = document.createElement('div');
+        el.id = 'copyright-footer';
+        el.innerHTML = 'Copyright &copy; ' + new Date().getFullYear()
+            + ' (주)아이팝엔지니어링 &nbsp;|&nbsp; 사업승인 체크리스트 Web v7.5 &nbsp;|&nbsp; All Rights Reserved.';
+        document.body.appendChild(el);
+    }
+    if(document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', injectFooter);
+    } else {
+        injectFooter();
+    }
+    // 리렌더링 후에도 유지
+    var obs = new MutationObserver(injectFooter);
+    obs.observe(document.body, {childList: true, subtree: false});
+})();
+</script>
+"""
+
+try:
+    import streamlit.components.v1 as _stc2
+    _stc2.html(_footer_html, height=0)
+except Exception:
+    pass
+# ──────────────────────────────────────────────────────────────────────
 
 # 상태 저장소 초기화 (분석 버튼 클릭 여부 저장)
 if 'analyzed' not in st.session_state:
@@ -157,6 +236,14 @@ if st.session_state.analyzed:
         pdf.cell(190, 8, f"용역명: {p_name} / 주소: {address}", border=1, ln=True)
         pdf.ln(5)
         
+        # PDF Footer 저작권 표기
+        pdf.set_font("K", size=8)
+        pdf.set_text_color(150, 150, 150)
+        pdf.cell(0, 6, f"Copyright © {datetime.now().year} (주)아이팝엔지니어링  |  사업승인 체크리스트 Web v7.5  |  All Rights Reserved.", ln=True, align='C')
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font("K", size=11)
+        pdf.ln(3)
+
         pdf.set_fill_color(240, 240, 240)
         col_w = [10, 50, 30, 40, 60]
         headers = ["No", "분석 항목", "결과", "법적 근거", "비고"]
