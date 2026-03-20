@@ -227,6 +227,37 @@ def _check_device_token(token):
     tokens, _, _ = _get_device_tokens()
     return token in tokens
 
+
+# ── 사용 로그 ──
+def _log_usage(name=""):
+    try:
+        content, sha = _gh_read("usage_log.txt")
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        today = datetime.now().strftime("%Y-%m-%d")
+        new_line = f"{now}|{name}\n"
+        new_content = (content or "") + new_line
+        _gh_write("usage_log.txt", new_content, sha, f"로그:{today}")
+    except Exception:
+        pass
+
+def _parse_log():
+    content, _ = _gh_read("usage_log.txt")
+    if not content:
+        return []
+    entries = []
+    for line in content.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split("|")
+        if len(parts) >= 1:
+            entries.append({
+                "datetime": parts[0].strip(),
+                "date": parts[0].strip()[:10],
+                "name": parts[1].strip() if len(parts) > 1 else ""
+            })
+    return entries
+
 # ── Secrets 로드 ──
 try:
     TG_TOKEN   = st.secrets["TG_TOKEN"]
@@ -239,7 +270,7 @@ _MAX_ATTEMPTS = 5
 
 # session_state 초기화
 for _k, _v in [("auth_ok", False), ("auth_attempts", 0),
-                ("req_sent", False), ("device_token", ""), ("is_admin", False), ("reentry_code", "")]:
+                ("req_sent", False), ("device_token", ""), ("is_admin", False), ("reentry_code", ""), ("show_login", False)]:
     if _k not in st.session_state:
         st.session_state[_k] = _v
 
@@ -334,24 +365,34 @@ if not st.session_state.auth_ok:
             if admin_quick_pw == ADMIN_PW and ADMIN_PW:
                 st.session_state.auth_ok = True
                 st.session_state.is_admin = True
+                _log_usage("관리자")
                 st.rerun()
             else:
                 st.error("비밀번호가 틀렸습니다.")
 
 
-    tab_request, tab_login = st.tabs(["📋 사용 신청", "🔑 코드 입력"])
+    if st.session_state.show_login:
+        tab_login, tab_request = st.tabs(["🔑 코드 입력", "📋 사용 신청"])
+    else:
+        tab_request, tab_login = st.tabs(["📋 사용 신청", "🔑 코드 입력"])
 
     # ── 탭1: 코드 입력 ──
     with tab_login:
         # 재입장 코드 발급 직후 표시
+        # 신청 완료 후 안내 메시지
+        if st.session_state.req_sent and not st.session_state.reentry_code:
+            st.success("✅ 신청이 완료됐습니다! 관리자 승인 후 코드를 전달드립니다.")
+            st.info("👇 코드를 받으시면 아래에 입력해주세요.")
+
         if st.session_state.reentry_code:
             st.success("✅ 승인 완료!")
             st.info(
                 f"📌 **재입장 코드 (반드시 저장해두세요!)**\n\n"
                 f"🔐 `{st.session_state.reentry_code}`\n\n"
-                f"다음 방문 시 이 코드로 바로 입장 가능합니다. (유효기간 15일, 로그인마다 연장)"
+                f"다음 방문 시 이 코드로 바로 입장 가능합니다. (유효기간: 최초 승인 후 15일)"
             )
             if st.button("✅ 앱 시작하기", use_container_width=True, type="primary"):
+                _log_usage(st.session_state.device_token)
                 st.session_state.auth_ok = True
                 st.session_state.reentry_code = ""
                 st.rerun()
@@ -373,6 +414,8 @@ if not st.session_state.auth_ok:
                 # 최초 승인일 기준 30일 고정 (연장 없음)
                 st.session_state.auth_ok = True
                 st.session_state.device_token = entered
+                user_info = dt_tokens.get(entered, {})
+                _log_usage(user_info.get("name", ""))
                 st.rerun()
             else:
                 # 1회용 승인 코드 확인
@@ -397,25 +440,24 @@ if not st.session_state.auth_ok:
 
     # ── 탭2: 사용 신청 ──
     with tab_request:
-        if st.session_state.req_sent:
-            st.success("✅ 신청이 완료됐습니다! 관리자 승인 후 코드를 전달드립니다.")
-        else:
-            req_name    = st.text_input("이름 *", placeholder="홍길동")
-            req_contact = st.text_input("연락처 *", placeholder="010-0000-0000")
+        req_name    = st.text_input("이름 *", placeholder="홍길동")
+        req_contact = st.text_input("연락처 *", placeholder="010-0000-0000")
 
-            if st.button("📨 사용 신청하기", use_container_width=True, type="primary"):
-                if not req_name or not req_contact:
-                    st.error("이름과 연락처는 필수입니다.")
-                else:
-                    _gh_save_request_item(req_name, req_contact, "", "")
-                    msg = (f"📋 <b>사업승인 체크리스트 사용 신청</b>\n\n"
-                           f"👤 이름: {req_name}\n"
-                           f"📞 연락처: {req_contact}\n\n"
-                           f"🔗 https://share.streamlit.io/app/boss-checklist\n"
-                           f"✅ 관리자 패널에서 승인 후 코드를 전달해주세요.")
-                    _tg_send(TG_TOKEN, TG_CHAT_ID, msg)
-                    st.session_state.req_sent = True
-                    st.rerun()
+        if st.button("📨 사용 신청하기", use_container_width=True, type="primary"):
+            if not req_name or not req_contact:
+                st.error("이름과 연락처는 필수입니다.")
+            else:
+                _gh_save_request_item(req_name, req_contact, "", "")
+                msg = (f"📋 <b>사업승인 체크리스트 사용 신청</b>\n\n"
+                       f"👤 이름: {req_name}\n"
+                       f"📞 연락처: {req_contact}\n\n"
+                       f"🔗 https://share.streamlit.io/app/boss-checklist\n"
+                       f"✅ 관리자 패널에서 승인 후 코드를 전달해주세요.")
+                _tg_send(TG_TOKEN, TG_CHAT_ID, msg)
+                st.session_state.show_login = True
+                st.session_state.req_sent = True
+                st.rerun()
+
 
     # ── 관리자 패널 ──
     with st.expander("🔧 관리자", expanded=False):
@@ -497,6 +539,35 @@ if not st.session_state.auth_ok:
 
             # ── 현재 유효 코드 목록 + 초기화 ──
             st.markdown("---")
+            # ── 사용 통계 ──
+            st.markdown("---")
+            st.markdown("**📊 사용 통계**")
+            if st.button("🔄 통계 새로고침", key="refresh_stats"):
+                st.rerun()
+            log_entries = _parse_log()
+            if log_entries:
+                from datetime import timedelta
+                today = datetime.now().strftime("%Y-%m-%d")
+                week_start = (datetime.now() - timedelta(days=datetime.now().weekday())).strftime("%Y-%m-%d")
+                month = datetime.now().strftime("%Y-%m")
+
+                cnt_today = sum(1 for e in log_entries if e["date"] == today)
+                cnt_week  = sum(1 for e in log_entries if e["date"] >= week_start)
+                cnt_month = sum(1 for e in log_entries if e["date"].startswith(month))
+                cnt_total = len(log_entries)
+
+                col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+                col_s1.metric("오늘", f"{cnt_today}회")
+                col_s2.metric("이번 주", f"{cnt_week}회")
+                col_s3.metric("이번 달", f"{cnt_month}회")
+                col_s4.metric("누적 총계", f"{cnt_total}회")
+
+                st.markdown("**최근 10회 로그인**")
+                for e in reversed(log_entries[-10:]):
+                    st.text(f"{e['datetime']}  |  {e['name'] or '(이름없음)'}")
+            else:
+                st.info("아직 로그인 기록이 없습니다.")
+
             st.markdown("**📋 현재 유효 승인 코드**")
             codes_now, _ = _get_codes_dict()
             if codes_now:
