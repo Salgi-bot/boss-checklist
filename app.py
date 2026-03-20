@@ -365,29 +365,20 @@ if not st.session_state.auth_ok:
     # ── 탭2: 사용 신청 ──
     with tab_request:
         if st.session_state.req_sent:
-            st.success("✅ 신청이 완료됐습니다! 관리자 승인 후 텔레그램으로 코드가 발송됩니다.")
+            st.success("✅ 신청이 완료됐습니다! 관리자 승인 후 코드를 전달드립니다.")
         else:
-            st.info("💡 **신청 방법**\n\n1️⃣ 텔레그램에서 **@userinfobot** 검색 → **/start** 전송\n2️⃣ 봇이 보내준 **숫자 ID** (예: 123456789) 를 아래에 입력\n3️⃣ 신청 완료 후 텔레그램으로 코드 자동 수신")
             req_name    = st.text_input("이름 *", placeholder="홍길동")
             req_contact = st.text_input("연락처 *", placeholder="010-0000-0000")
-            req_org     = st.text_input("소속 (선택)", placeholder="회사명 또는 기관명")
-            req_tg_id   = st.text_input("텔레그램 Chat ID *",
-                                        placeholder="예) 123456789",
-                                        help="텔레그램에서 @userinfobot 검색 → /start 입력 → 표시되는 숫자 ID 입력")
 
             if st.button("📨 사용 신청하기", use_container_width=True, type="primary"):
-                if not req_name or not req_contact or not req_tg_id:
-                    st.error("이름, 연락처, 텔레그램 Chat ID는 필수입니다.")
+                if not req_name or not req_contact:
+                    st.error("이름과 연락처는 필수입니다.")
                 else:
-                    # GitHub에 신청 저장
-                    _gh_save_request_item(req_name, req_contact, req_org, req_tg_id.strip())
-                    # 관리자 텔레그램 알림
+                    _gh_save_request_item(req_name, req_contact, "", "")
                     msg = (f"📋 <b>사업승인 체크리스트 사용 신청</b>\n\n"
                            f"👤 이름: {req_name}\n"
-                           f"📞 연락처: {req_contact}\n"
-                           f"🏢 소속: {req_org if req_org else '미입력'}\n"
-                           f"💬 텔레그램 ID: <code>{req_tg_id.strip()}</code>\n\n"
-                           f"✅ 관리자 패널 → [대기 신청] 에서 승인하시면 자동 발송됩니다.")
+                           f"📞 연락처: {req_contact}\n\n"
+                           f"✅ 관리자 패널에서 승인 후 코드를 전달해주세요.")
                     _tg_send(TG_TOKEN, TG_CHAT_ID, msg)
                     st.session_state.req_sent = True
                     st.rerun()
