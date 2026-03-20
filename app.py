@@ -327,7 +327,7 @@ if not st.session_state.auth_ok:
     </div>
     """, unsafe_allow_html=True)
 
-    tab_login, tab_request = st.tabs(["🔑 코드 입력", "📋 사용 신청"])
+    tab_request, tab_login = st.tabs(["📋 사용 신청", "🔑 코드 입력"])
 
     # ── 탭1: 코드 입력 ──
     with tab_login:
@@ -378,6 +378,7 @@ if not st.session_state.auth_ok:
                     msg = (f"📋 <b>사업승인 체크리스트 사용 신청</b>\n\n"
                            f"👤 이름: {req_name}\n"
                            f"📞 연락처: {req_contact}\n\n"
+                           f"🔗 https://share.streamlit.io/app/boss-checklist\n"
                            f"✅ 관리자 패널에서 승인 후 코드를 전달해주세요.")
                     _tg_send(TG_TOKEN, TG_CHAT_ID, msg)
                     st.session_state.req_sent = True
@@ -422,7 +423,7 @@ if not st.session_state.auth_ok:
                             _gh_approve_request_item(r['id'], new_code)
                             _tg_send(TG_TOKEN, TG_CHAT_ID,
                                 f"✅ <b>승인 완료</b>\n👤 {r['name']}\n🔐 {new_code}\n"
-                                f"{'📤 자동 발송 성공' if sent else '⚠️ 발송 실패 — tg_id 확인 필요'}")
+                                f"🔗 https://share.streamlit.io/app/boss-checklist")
                             if sent:
                                 st.success(f"✅ {r['name']}님 텔레그램으로 코드 자동 발송 완료!")
                             else:
