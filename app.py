@@ -87,7 +87,7 @@ except Exception:
 # ──────────────────────────────────────────────────────────────────────
 
 # ── 텔레그램 봇 설정 ───────────────────────────────────────────
-import urllib.request, urllib.parse, json, random, string
+import urllib.request, urllib.parse, json, random, string, base64
 
 def _tg_send(token, chat_id, text):
     """텔레그램 메시지 발송"""
@@ -102,11 +102,67 @@ def _gen_code():
     """8자리 랜덤 코드 생성"""
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
+def _gh_get_codes():
+    """GitHub access_codes.txt에서 코드 목록 + sha 반환"""
+    try:
+        gh_token = st.secrets.get("GITHUB_TOKEN", "")
+        gh_repo  = st.secrets.get("GITHUB_REPO", "")
+        if not gh_token or not gh_repo:
+            return [], ""
+        url = f"https://api.github.com/repos/{gh_repo}/contents/access_codes.txt"
+        req = urllib.request.Request(url, headers={
+            "Authorization": f"token {gh_token}",
+            "Accept": "application/vnd.github.v3+json"
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            d = json.loads(resp.read())
+            content = base64.b64decode(d["content"]).decode("utf-8")
+            codes = [c.strip() for c in content.splitlines() if c.strip()]
+            return codes, d.get("sha", "")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return [], ""
+        return [], ""
+    except Exception:
+        return [], ""
+
+def _gh_add_code(new_code):
+    """GitHub access_codes.txt에 코드 추가 (자동저장)"""
+    try:
+        gh_token = st.secrets.get("GITHUB_TOKEN", "")
+        gh_repo  = st.secrets.get("GITHUB_REPO", "")
+        if not gh_token or not gh_repo:
+            return False
+        codes, sha = _gh_get_codes()
+        codes.append(new_code)
+        new_content = "\n".join(codes) + "\n"
+        encoded = base64.b64encode(new_content.encode("utf-8")).decode("utf-8")
+        url = f"https://api.github.com/repos/{gh_repo}/contents/access_codes.txt"
+        payload = {"message": f"코드 추가: {new_code}", "content": encoded}
+        if sha:
+            payload["sha"] = sha
+        req = urllib.request.Request(url,
+            data=json.dumps(payload).encode(),
+            method="PUT",
+            headers={
+                "Authorization": f"token {gh_token}",
+                "Content-Type": "application/json",
+                "Accept": "application/vnd.github.v3+json"
+            })
+        urllib.request.urlopen(req, timeout=10)
+        return True
+    except Exception:
+        return False
+
 try:
     TG_TOKEN   = st.secrets["TG_TOKEN"]
     TG_CHAT_ID = st.secrets["TG_CHAT_ID"]
+    # Streamlit Secrets 코드
     valid_codes_raw = st.secrets.get("ACCESS_CODES", "")
-    valid_codes = [c.strip() for c in valid_codes_raw.split(",") if c.strip()]
+    secret_codes = [c.strip() for c in valid_codes_raw.split(",") if c.strip()]
+    # GitHub 파일 코드 (자동저장 방식)
+    gh_codes, _ = _gh_get_codes()
+    valid_codes = list(set(secret_codes + gh_codes))
 except Exception:
     TG_TOKEN = TG_CHAT_ID = ""
     valid_codes = []
@@ -191,13 +247,16 @@ if not st.session_state.auth_ok:
             new_user = st.text_input("수신자 이름", key="new_user")
             if st.button("🎲 코드 생성 및 텔레그램 발송", key="gen_code"):
                 new_code = _gen_code()
+                saved = _gh_add_code(new_code)
                 msg = (f"🔑 <b>승인 코드 발급</b>\n\n"
                        f"👤 수신자: {new_user}\n"
                        f"🔐 코드: <code>{new_code}</code>\n\n"
-                       f"⚙️ Streamlit Secrets의 ACCESS_CODES에 추가해주세요:\n"
-                       f"<code>{new_code}</code>")
+                       f"{'✅ GitHub 자동 저장 완료' if saved else '⚠️ GitHub 저장 실패 - Secrets에 수동 추가 필요'}")
                 _tg_send(TG_TOKEN, TG_CHAT_ID, msg)
-                st.info(f"📤 발급된 코드: **{new_code}**\n\nStreamlit Secrets > ACCESS_CODES 에 추가 후 사용자에게 전달하세요.")
+                if saved:
+                    st.success(f"✅ 코드 자동 저장 완료!\n\n코드: **{new_code}**\n\n텔레그램으로 코드를 전달하세요.")
+                else:
+                    st.warning(f"⚠️ GitHub 자동 저장 실패.\n\n코드: **{new_code}**\n\nStreamlit Secrets > ACCESS_CODES 에 수동으로 추가해주세요.")
         elif admin_pw:
             st.error("비밀번호가 틀렸습니다.")
 
@@ -234,8 +293,8 @@ with st.sidebar:
     p_name = st.text_input("용역명", "신규 개발사업 프로젝트")
     address = st.text_input("주소", "대전광역시 서구 월드컵대로484번안길 10, 3층")
 
-    # 총공사비 - 50억 미만 / 이상 선택
-    cost_opt = st.selectbox("총공사비", ["50억원 미만", "50억원 이상"])
+    # 총공사비 - 50억 미만 / 이상 선택 (기본값: 50억원 이상)
+    cost_opt = st.selectbox("총공사비", ["50억원 미만", "50억원 이상"], index=1)
     const_cost = 30 if cost_opt == "50억원 미만" else 50  # 내부 계산용
 
     st.divider()
@@ -243,10 +302,14 @@ with st.sidebar:
     col1, col2 = st.columns(2)
     land_area  = col1.number_input("대지면적(㎡)", value=10000, step=1, format="%d")
     total_area = col2.number_input("연면적(㎡)", value=50000, step=1, format="%d")
+    col1.caption(f"▸ {land_area:,} ㎡")
+    col2.caption(f"▸ {total_area:,} ㎡")
     under_area = st.number_input("지하층 연면적(㎡)", value=10000, step=1, format="%d")
+    st.caption(f"▸ {under_area:,} ㎡")
     above_area = total_area - under_area
     st.text_input("지상층 연면적(㎡)", f"{above_area:,}", disabled=True)
-    parking    = st.number_input("주차장(기계실) 연면적(㎡)", value=10000, step=1, format="%d")
+    parking    = st.number_input("주차장(기계실) 면적(㎡)", value=10000, step=1, format="%d")
+    st.caption(f"▸ {parking:,} ㎡")
     excl_area  = total_area - parking
     st.text_input("제외 면적(㎡)", f"{excl_area:,}", disabled=True)
 
@@ -256,6 +319,7 @@ with st.sidebar:
     build_coverage = col_a.number_input("건폐율(%)", value=60, step=1, format="%d")
     floor_area_ratio = col_b.number_input("용적률(%)", value=250, step=1, format="%d")
     arch_area = st.number_input("건축면적(㎡)", value=3000, step=1, format="%d")
+    st.caption(f"▸ {arch_area:,} ㎡")
 
     st.divider()
     # 층수/높이/굴착
@@ -316,8 +380,6 @@ if st.session_state.analyzed:
         <td style='color:#555;'>🏢 연면적</td><td><b>{T:,}㎡</b></td></tr>
     <tr><td style='color:#555;'>⬇️ 지하층 연면적</td><td><b>{under_area:,}㎡</b></td>
         <td style='color:#555;'>⬆️ 지상층 연면적</td><td><b>{above_area:,}㎡</b></td></tr>
-    <tr><td style='color:#555;'>🚗 주차장(기계실)</td><td><b>{parking:,}㎡</b></td>
-        <td style='color:#555;'>📐 제외면적</td><td><b>{excl_A:,}㎡</b></td></tr>
     <tr><td style='color:#555;'>📊 건폐율</td><td><b>{build_coverage}%</b></td>
         <td style='color:#555;'>📊 용적률</td><td><b>{floor_area_ratio}%</b></td></tr>
     <tr><td style='color:#555;'>📐 건축면적</td><td><b>{arch_area:,}㎡</b></td>
@@ -484,7 +546,6 @@ if st.session_state.analyzed:
             ("주소", address, "총공사비", cost_opt),
             ("대지면적", f"{L:,}㎡", "연면적", f"{T:,}㎡"),
             ("지하층 연면적", f"{under_area:,}㎡", "지상층 연면적", f"{above_area:,}㎡"),
-            ("주차장(기계실)", f"{parking:,}㎡", "제외면적", f"{excl_A:,}㎡"),
             ("건폐율", f"{build_coverage}%", "용적률", f"{floor_area_ratio}%"),
             ("건축면적", f"{arch_area:,}㎡", "최고높이", f"{H}m"),
             ("층수", f"지하{BF}/지상{GF}(총{TF}층)", "굴착깊이", f"{D}m"),
@@ -519,25 +580,71 @@ if st.session_state.analyzed:
         pdf.set_text_color(0, 0, 0)
 
         def pdf_row(r):
+            col_w_local = [8, 42, 22, 28, 30, 60]
+            texts = [
+                str(r['No']),
+                r['분석 항목'],
+                r['결과'],
+                r.get('제출시기', '-'),
+                r['법적 근거'],
+                r['비고']
+            ]
+            font_size = 8
+            line_h = 4.5
+
+            def split_text(text, width):
+                pdf.set_font("K", size=font_size)
+                words = str(text).split(' ')
+                lines, cur = [], ''
+                for w in words:
+                    test = (cur + ' ' + w).strip()
+                    if pdf.get_string_width(test) > width - 2 and cur:
+                        lines.append(cur)
+                        cur = w
+                    else:
+                        cur = test
+                if cur:
+                    lines.append(cur)
+                return lines or ['']
+
+            all_lines = [split_text(t, w) for t, w in zip(texts, col_w_local)]
+            max_lines = max(len(l) for l in all_lines)
+            row_h = max(7, max_lines * line_h + 1)
+
+            # 페이지 넘김 체크
+            if pdf.get_y() + row_h > pdf.page_break_trigger:
+                pdf.add_page()
+                # 헤더 재출력
+                pdf.set_fill_color(0, 82, 204)
+                pdf.set_text_color(255, 255, 255)
+                pdf.set_font("K", size=9)
+                for h, w in zip(headers, col_w):
+                    pdf.cell(w, 7, h, border=1, fill=True, align='C')
+                pdf.ln()
+                pdf.set_text_color(0, 0, 0)
+
+            y0 = pdf.get_y()
+            x0 = pdf.l_margin
+
+            for i, (lines_i, w) in enumerate(zip(all_lines, col_w_local)):
+                pdf.set_font("K", size=font_size)
+                if i == 2:
+                    if r['tag'] == "target": pdf.set_text_color(0, 82, 204)
+                    elif r['tag'] == "hold": pdf.set_text_color(255, 152, 0)
+                    else: pdf.set_text_color(160, 160, 160)
+                else:
+                    pdf.set_text_color(0, 0, 0)
+                # 테두리 사각형
+                pdf.rect(x0, y0, w, row_h)
+                # 텍스트 출력
+                for j, line in enumerate(lines_i):
+                    pdf.set_xy(x0 + 1, y0 + j * line_h + 1)
+                    align = 'C' if i in [0, 2] else 'L'
+                    pdf.cell(w - 2, line_h, line, border=0, align=align)
+                x0 += w
+
             pdf.set_text_color(0, 0, 0)
-            pdf.set_font("K", size=9)
-            pdf.cell(col_w[0], 7, str(r['No']), border=1, align='C')
-            pdf.cell(col_w[1], 7, r['분석 항목'], border=1)
-            if r['tag'] == "target": pdf.set_text_color(0, 82, 204)
-            elif r['tag'] == "hold": pdf.set_text_color(255, 152, 0)
-            else: pdf.set_text_color(160, 160, 160)
-            pdf.cell(col_w[2], 7, r['결과'], border=1, align='C')
-            pdf.set_text_color(0, 0, 0)
-            pdf.cell(col_w[3], 7, r.get('제출시기', '-'), border=1)
-            pdf.cell(col_w[4], 7, r['법적 근거'], border=1)
-            remark_text = str(r['비고'])
-            remark_fs = 9
-            while pdf.get_string_width(remark_text) > col_w[5] - 2 and remark_fs > 5:
-                remark_fs -= 0.5
-                pdf.set_font("K", size=remark_fs)
-            pdf.cell(col_w[5], 7, remark_text, border=1)
-            pdf.set_font("K", size=9)
-            pdf.ln()
+            pdf.set_xy(pdf.l_margin, y0 + row_h)
 
         for r in display_data:
             pdf_row(r)
