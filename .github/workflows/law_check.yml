@@ -1,0 +1,29 @@
+name: 법령 변경 자동 체크 (매월 1일 / 매 3개월)
+
+on:
+  schedule:
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+
+jobs:
+  law-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 리포지토리 체크아웃
+        uses: actions/checkout@v3
+
+      - name: Python 설치
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: 필요 패키지 설치
+        run: pip install openai requests
+
+      - name: 법령 체크 실행 및 이메일 발송
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_PASS: ${{ secrets.GMAIL_PASS }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python law_checker.py
