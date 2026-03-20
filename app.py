@@ -214,7 +214,7 @@ def _get_device_tokens():
                 pass
     return tokens, sha, "\n".join(valid_lines) + "\n" if valid_lines else ""
 
-def _add_device_token(token, name="", days=90):
+def _add_device_token(token, name="", days=15):
     tokens, sha, clean_content = _get_device_tokens()
     expiry = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
     new_line = f"{token}|{expiry}|{name}"
@@ -239,7 +239,7 @@ _MAX_ATTEMPTS = 5
 
 # session_state 초기화
 for _k, _v in [("auth_ok", False), ("auth_attempts", 0),
-                ("req_sent", False), ("device_token", "")]:
+                ("req_sent", False), ("device_token", ""), ("is_admin", False), ("reentry_code", "")]:
     if _k not in st.session_state:
         st.session_state[_k] = _v
 
@@ -327,40 +327,73 @@ if not st.session_state.auth_ok:
     </div>
     """, unsafe_allow_html=True)
 
+    # ── 관리자 비밀번호로 바로 입장 ──
+    with st.expander("🔑 관리자 입장", expanded=False):
+        admin_quick_pw = st.text_input("관리자 비밀번호", type="password", key="admin_quick_pw")
+        if st.button("🚀 관리자로 입장", use_container_width=True):
+            if admin_quick_pw == ADMIN_PW and ADMIN_PW:
+                st.session_state.auth_ok = True
+                st.session_state.is_admin = True
+                st.rerun()
+            else:
+                st.error("비밀번호가 틀렸습니다.")
+
+
     tab_request, tab_login = st.tabs(["📋 사용 신청", "🔑 코드 입력"])
 
     # ── 탭1: 코드 입력 ──
     with tab_login:
+        # 재입장 코드 발급 직후 표시
+        if st.session_state.reentry_code:
+            st.success("✅ 승인 완료!")
+            st.info(
+                f"📌 **재입장 코드 (반드시 저장해두세요!)**\n\n"
+                f"🔐 `{st.session_state.reentry_code}`\n\n"
+                f"다음 방문 시 이 코드로 바로 입장 가능합니다. (유효기간 15일, 로그인마다 연장)"
+            )
+            if st.button("✅ 앱 시작하기", use_container_width=True, type="primary"):
+                st.session_state.auth_ok = True
+                st.session_state.reentry_code = ""
+                st.rerun()
+            st.stop()
+
         remaining = _MAX_ATTEMPTS - st.session_state.auth_attempts
         if remaining <= 0:
             st.error("⛔ 입력 횟수 초과로 접근이 차단되었습니다. 관리자에게 문의하세요.")
             st.stop()
 
-        code_input = st.text_input("승인 코드", type="password", max_chars=8,
-                                   placeholder="발급받은 8자리 코드 입력",
+        code_input = st.text_input("코드 입력", type="password",
+                                   placeholder="승인 코드(8자리) 또는 재입장 코드(12자리 이내)",
                                    help=f"남은 시도: {remaining}회")
         if st.button("✅ 입장", use_container_width=True, type="primary"):
-            codes_dict, _ = _get_codes_dict()
-            if code_input.strip().upper() in codes_dict:
-                user_name = codes_dict[code_input.strip().upper()]
-                # 1회용 코드 폐기
-                _use_code(code_input.strip())
-                # 기기 토큰 발급 (90일)
-                new_dt = str(uuid.uuid4()).replace("-", "")[:24]
-                _add_device_token(new_dt, user_name, days=90)
+            entered = code_input.strip().upper()
+            # 재입장 코드 확인 (device_tokens.txt)
+            dt_tokens, dt_sha, dt_clean = _get_device_tokens()
+            if entered in dt_tokens:
+                # 최초 승인일 기준 30일 고정 (연장 없음)
                 st.session_state.auth_ok = True
-                st.session_state.device_token = new_dt
-                # URL query param 설정 (북마크 지원)
-                st.query_params["dt"] = new_dt
-                _inject_save_token(new_dt)
+                st.session_state.device_token = entered
                 st.rerun()
             else:
-                st.session_state.auth_attempts += 1
-                left = _MAX_ATTEMPTS - st.session_state.auth_attempts
-                if left <= 0:
-                    st.error("⛔ 입력 횟수 초과로 접근이 차단되었습니다.")
+                # 1회용 승인 코드 확인
+                codes_dict, _ = _get_codes_dict()
+                if entered in codes_dict:
+                    user_name = codes_dict[entered]
+                    _use_code(entered)
+                    # 12자리 재입장 코드 발급
+                    reentry = ''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
+                    _add_device_token(reentry, user_name, days=15)
+                    st.session_state.device_token = reentry
+                    st.session_state.reentry_code = reentry
+                    st.rerun()
                 else:
-                    st.error(f"❌ 코드가 올바르지 않습니다. (남은 시도: {left}회)")
+                    st.session_state.auth_attempts += 1
+                    left = _MAX_ATTEMPTS - st.session_state.auth_attempts
+                    if left <= 0:
+                        st.error("⛔ 입력 횟수 초과로 접근이 차단되었습니다.")
+                    else:
+                        st.error(f"❌ 코드가 올바르지 않습니다. (남은 시도: {left}회)")
+
 
     # ── 탭2: 사용 신청 ──
     with tab_request:
@@ -462,15 +495,46 @@ if not st.session_state.auth_ok:
                     f"🔑 <b>수동 코드 발급</b>\n👤 {manual_name}\n🔐 <code>{new_code}</code>")
                 st.success(f"코드: **{new_code}** — 관리자 텔레그램으로 발송됐습니다.")
 
-            # ── 현재 유효 코드 목록 ──
+            # ── 현재 유효 코드 목록 + 초기화 ──
             st.markdown("---")
-            st.markdown("**📋 현재 유효 코드 목록**")
+            st.markdown("**📋 현재 유효 승인 코드**")
             codes_now, _ = _get_codes_dict()
             if codes_now:
-                for c, n in codes_now.items():
-                    st.code(f"{c}  ←  {n or '(이름 없음)'}")
+                for c, n in list(codes_now.items()):
+                    col_c, col_del = st.columns([4, 1])
+                    col_c.code(f"{c}  ←  {n or '(이름 없음)'}")
+                    if col_del.button("🗑️", key=f"del_code_{c}", help="이 코드 삭제"):
+                        codes_now2, sha2 = _get_codes_dict()
+                        if c in codes_now2:
+                            del codes_now2[c]
+                            body = "\n".join(f"{k}:{v}" for k, v in codes_now2.items()) + "\n"
+                            _gh_write("access_codes.txt", body, sha2, f"코드삭제:{c}")
+                        st.success(f"✅ {c} 삭제 완료")
+                        st.rerun()
             else:
-                st.info("현재 유효한 코드가 없습니다.")
+                st.info("현재 유효한 승인 코드가 없습니다.")
+
+            # ── 재입장 코드(기기 토큰) 목록 + 초기화 ──
+            st.markdown("---")
+            st.markdown("**📋 재입장 코드 목록 (기기 토큰)**")
+            dt_tokens2, dt_sha2, _ = _get_device_tokens()
+            if dt_tokens2:
+                for tok, info in list(dt_tokens2.items()):
+                    col_t, col_td = st.columns([4, 1])
+                    col_t.code(f"{tok}  ←  {info.get('name','(이름없음)')}  |  만료: {info.get('expiry','')}")
+                    if col_td.button("🗑️", key=f"del_tok_{tok}", help="이 재입장 코드 삭제"):
+                        content2, sha3 = _gh_read("device_tokens.txt")
+                        new_lines2 = [l for l in content2.splitlines() if not l.startswith(tok)]
+                        _gh_write("device_tokens.txt", "\n".join(new_lines2) + "\n", sha3, f"토큰삭제:{tok[:8]}")
+                        st.success("✅ 재입장 코드 삭제 완료")
+                        st.rerun()
+                if st.button("🗑️ 전체 재입장 코드 초기화", key="clear_all_tokens"):
+                    _gh_write("device_tokens.txt", "", dt_sha2, "전체초기화")
+                    st.success("✅ 전체 초기화 완료")
+                    st.rerun()
+            else:
+                st.info("현재 유효한 재입장 코드가 없습니다.")
+
 
         elif admin_pw_input:
             st.error("비밀번호가 틀렸습니다.")
