@@ -86,104 +86,244 @@ except Exception:
     pass
 # ──────────────────────────────────────────────────────────────────────
 
-# ── 텔레그램 봇 설정 ───────────────────────────────────────────
-import urllib.request, urllib.parse, json, random, string, base64
+# ── 텔레그램 / GitHub / 인증 시스템 ──────────────────────────────────
+import urllib.request, urllib.parse, json, random, string, base64, uuid
+from datetime import timedelta
 
 def _tg_send(token, chat_id, text):
-    """텔레그램 메시지 발송"""
     try:
         url = f"https://api.telegram.org/bot{token}/sendMessage"
-        data = urllib.parse.urlencode({"chat_id": chat_id, "text": text, "parse_mode": "HTML"}).encode()
+        data = urllib.parse.urlencode({"chat_id": str(chat_id), "text": text, "parse_mode": "HTML"}).encode()
         urllib.request.urlopen(url, data=data, timeout=10)
+        return True
     except Exception as e:
-        st.warning(f"텔레그램 발송 오류: {e}")
+        return False
+
+def _tg_get_updates(token):
+    """봇에 메시지를 보낸 사용자 목록 조회 (최근 100개)"""
+    try:
+        url = f"https://api.telegram.org/bot{token}/getUpdates?limit=100&offset=-100"
+        with urllib.request.urlopen(url, timeout=10) as r:
+            data = json.loads(r.read())
+        users = {}
+        for upd in data.get("result", []):
+            msg = upd.get("message", {})
+            if msg:
+                u = msg.get("from", {})
+                chat_id = str(msg.get("chat", {}).get("id", ""))
+                if chat_id:
+                    users[chat_id] = {
+                        "chat_id": chat_id,
+                        "first_name": u.get("first_name", ""),
+                        "last_name":  u.get("last_name", ""),
+                        "username":   u.get("username", ""),
+                        "text":       msg.get("text", "")
+                    }
+        return list(users.values())
+    except Exception:
+        return []
 
 def _gen_code():
-    """8자리 랜덤 코드 생성"""
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
-def _gh_get_codes():
-    """GitHub access_codes.txt에서 코드 목록 + sha 반환"""
+# ── GitHub 파일 CRUD ──
+def _gh_read(filename):
+    """GitHub 파일 읽기 → (content_str, sha)"""
     try:
         gh_token = st.secrets.get("GITHUB_TOKEN", "")
         gh_repo  = st.secrets.get("GITHUB_REPO", "")
-        if not gh_token or not gh_repo:
-            return [], ""
-        url = f"https://api.github.com/repos/{gh_repo}/contents/access_codes.txt"
+        url = f"https://api.github.com/repos/{gh_repo}/contents/{filename}"
         req = urllib.request.Request(url, headers={
             "Authorization": f"token {gh_token}",
             "Accept": "application/vnd.github.v3+json"
         })
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            d = json.loads(resp.read())
-            content = base64.b64decode(d["content"]).decode("utf-8")
-            codes = [c.strip() for c in content.splitlines() if c.strip()]
-            return codes, d.get("sha", "")
+        with urllib.request.urlopen(req, timeout=10) as r:
+            d = json.loads(r.read())
+            return base64.b64decode(d["content"]).decode("utf-8"), d.get("sha", "")
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            return [], ""
-        return [], ""
+            return "", ""
+        return "", ""
     except Exception:
-        return [], ""
+        return "", ""
 
-def _gh_add_code(new_code):
-    """GitHub access_codes.txt에 코드 추가 (자동저장)"""
+def _gh_write(filename, content, sha="", msg="update"):
+    """GitHub 파일 쓰기"""
     try:
         gh_token = st.secrets.get("GITHUB_TOKEN", "")
         gh_repo  = st.secrets.get("GITHUB_REPO", "")
-        if not gh_token or not gh_repo:
-            return False
-        codes, sha = _gh_get_codes()
-        codes.append(new_code)
-        new_content = "\n".join(codes) + "\n"
-        encoded = base64.b64encode(new_content.encode("utf-8")).decode("utf-8")
-        url = f"https://api.github.com/repos/{gh_repo}/contents/access_codes.txt"
-        payload = {"message": f"코드 추가: {new_code}", "content": encoded}
+        url = f"https://api.github.com/repos/{gh_repo}/contents/{filename}"
+        payload = {"message": msg, "content": base64.b64encode(content.encode()).decode()}
         if sha:
             payload["sha"] = sha
-        req = urllib.request.Request(url,
-            data=json.dumps(payload).encode(),
-            method="PUT",
-            headers={
-                "Authorization": f"token {gh_token}",
-                "Content-Type": "application/json",
-                "Accept": "application/vnd.github.v3+json"
-            })
+        req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="PUT",
+            headers={"Authorization": f"token {gh_token}", "Content-Type": "application/json",
+                     "Accept": "application/vnd.github.v3+json"})
         urllib.request.urlopen(req, timeout=10)
         return True
     except Exception:
         return False
 
+# ── 코드 관리 (1인 1코드, 사용 후 폐기) ──
+def _get_codes_dict():
+    """access_codes.txt: 'CODE:이름' 형식으로 저장"""
+    content, sha = _gh_read("access_codes.txt")
+    codes = {}
+    for line in content.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split(":", 1)
+        codes[parts[0].upper()] = parts[1] if len(parts) > 1 else ""
+    return codes, sha
+
+def _add_code(code, name=""):
+    codes, sha = _get_codes_dict()
+    codes[code.upper()] = name
+    content = "\n".join(f"{k}:{v}" for k, v in codes.items()) + "\n"
+    return _gh_write("access_codes.txt", content, sha, f"코드추가:{code}")
+
+def _use_code(code):
+    """코드 사용 처리 — 파일에서 제거 (1회용)"""
+    codes, sha = _get_codes_dict()
+    if code.upper() in codes:
+        del codes[code.upper()]
+        content = "\n".join(f"{k}:{v}" for k, v in codes.items()) + "\n"
+        _gh_write("access_codes.txt", content, sha, f"코드사용:{code}")
+
+# ── 기기 토큰 관리 (device_tokens.txt: TOKEN|만료일|이름) ──
+def _get_device_tokens():
+    content, sha = _gh_read("device_tokens.txt")
+    tokens = {}
+    today = datetime.now().date()
+    valid_lines = []
+    for line in content.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split("|")
+        if len(parts) >= 2:
+            tok, expiry_str = parts[0], parts[1]
+            name = parts[2] if len(parts) > 2 else ""
+            try:
+                expiry = datetime.strptime(expiry_str, "%Y-%m-%d").date()
+                if expiry >= today:
+                    tokens[tok] = {"expiry": expiry_str, "name": name}
+                    valid_lines.append(line)
+            except Exception:
+                pass
+    return tokens, sha, "\n".join(valid_lines) + "\n" if valid_lines else ""
+
+def _add_device_token(token, name="", days=90):
+    tokens, sha, clean_content = _get_device_tokens()
+    expiry = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
+    new_line = f"{token}|{expiry}|{name}"
+    new_content = clean_content + new_line + "\n"
+    _gh_write("device_tokens.txt", new_content, sha, f"기기토큰추가")
+
+def _check_device_token(token):
+    if not token:
+        return False
+    tokens, _, _ = _get_device_tokens()
+    return token in tokens
+
+# ── Secrets 로드 ──
 try:
     TG_TOKEN   = st.secrets["TG_TOKEN"]
     TG_CHAT_ID = st.secrets["TG_CHAT_ID"]
-    # Streamlit Secrets 코드
-    valid_codes_raw = st.secrets.get("ACCESS_CODES", "")
-    secret_codes = [c.strip() for c in valid_codes_raw.split(",") if c.strip()]
-    # GitHub 파일 코드 (자동저장 방식)
-    gh_codes, _ = _gh_get_codes()
-    valid_codes = list(set(secret_codes + gh_codes))
+    ADMIN_PW   = st.secrets.get("ADMIN_PW", "")
 except Exception:
-    TG_TOKEN = TG_CHAT_ID = ""
-    valid_codes = []
+    TG_TOKEN = TG_CHAT_ID = ADMIN_PW = ""
 
 _MAX_ATTEMPTS = 5
 
 # session_state 초기화
 for _k, _v in [("auth_ok", False), ("auth_attempts", 0),
-                ("show_request", False), ("req_sent", False),
-                ("show_admin", False)]:
+                ("req_sent", False), ("device_token", "")]:
     if _k not in st.session_state:
         st.session_state[_k] = _v
+
+# ── 기기 토큰 자동 확인 (query param) ──
+_dt_param = st.query_params.get("dt", "")
+if _dt_param and not st.session_state.auth_ok:
+    if _check_device_token(_dt_param):
+        st.session_state.auth_ok = True
+        st.session_state.device_token = _dt_param
+
+# ── 기기 토큰 저장 JS (로그인 성공 시 localStorage) ──
+def _inject_save_token(token):
+    import streamlit.components.v1 as _stc_dt
+    _stc_dt.html(f"""
+    <script>
+    (function(){{
+        try {{
+            localStorage.setItem('boss_dt', '{token}');
+        }} catch(e) {{}}
+        try {{
+            var url = window.top.location.href.split('?')[0] + '?dt={token}';
+            window.top.history.replaceState(null, '', url);
+        }} catch(e) {{}}
+    }})();
+    </script>
+    """, height=0)
+
+# ── localStorage에서 토큰 읽어서 query param에 주입 JS ──
+import streamlit.components.v1 as _stcjs
+_stcjs.html("""
+<script>
+(function(){
+    try {
+        var dt = localStorage.getItem('boss_dt');
+        if(dt && window.top.location.href.indexOf('dt=') === -1){
+            var url = window.top.location.href.split('?')[0] + '?dt=' + dt;
+            window.top.location.replace(url);
+        }
+    } catch(e) {}
+})();
+</script>
+""", height=0)
+
+# ── GitHub 신청 목록 관리 ──
+def _gh_get_requests_list():
+    content, sha = _gh_read("requests.json")
+    if not content:
+        return [], sha
+    try:
+        return json.loads(content), sha
+    except Exception:
+        return [], sha
+
+def _gh_save_request_item(name, contact, org, tg_id):
+    reqs, sha = _gh_get_requests_list()
+    req_id = _gen_code()
+    reqs.append({
+        "id": req_id,
+        "name": name,
+        "contact": contact,
+        "org": org or "",
+        "tg_id": tg_id or "",
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "status": "pending"
+    })
+    _gh_write("requests.json", json.dumps(reqs, ensure_ascii=False, indent=2), sha, f"신청:{name}")
+    return req_id
+
+def _gh_approve_request_item(req_id, code):
+    reqs, sha = _gh_get_requests_list()
+    for r in reqs:
+        if r["id"] == req_id:
+            r["status"] = "approved"
+            r["code"] = code
+    _gh_write("requests.json", json.dumps(reqs, ensure_ascii=False, indent=2), sha, f"승인:{req_id}")
 
 # ── 인증 화면 ──────────────────────────────────────────────────
 if not st.session_state.auth_ok:
 
     st.markdown("""
-    <div style='max-width:440px;margin:60px auto 0;padding:40px 36px 30px;border-radius:14px;
+    <div style='max-width:460px;margin:40px auto 0;padding:36px 32px 28px;border-radius:14px;
                 box-shadow:0 4px 24px rgba(0,0,0,0.10);background:white;text-align:center;'>
         <h2 style='color:#0052CC;margin:0 0 4px;'>🔐 사업승인 체크리스트</h2>
-        <p style='color:#777;font-size:13px;margin:0 0 28px;'>(주)아이팝엔지니어링 · 승인된 사용자만 이용 가능</p>
+        <p style='color:#777;font-size:13px;margin:0 0 8px;'>(주)아이팝엔지니어링 · 승인된 사용자만 이용 가능</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -200,8 +340,19 @@ if not st.session_state.auth_ok:
                                    placeholder="발급받은 8자리 코드 입력",
                                    help=f"남은 시도: {remaining}회")
         if st.button("✅ 입장", use_container_width=True, type="primary"):
-            if code_input.strip().upper() in [c.upper() for c in valid_codes]:
+            codes_dict, _ = _get_codes_dict()
+            if code_input.strip().upper() in codes_dict:
+                user_name = codes_dict[code_input.strip().upper()]
+                # 1회용 코드 폐기
+                _use_code(code_input.strip())
+                # 기기 토큰 발급 (90일)
+                new_dt = str(uuid.uuid4()).replace("-", "")[:24]
+                _add_device_token(new_dt, user_name, days=90)
                 st.session_state.auth_ok = True
+                st.session_state.device_token = new_dt
+                # URL query param 설정 (북마크 지원)
+                st.query_params["dt"] = new_dt
+                _inject_save_token(new_dt)
                 st.rerun()
             else:
                 st.session_state.auth_attempts += 1
@@ -214,50 +365,122 @@ if not st.session_state.auth_ok:
     # ── 탭2: 사용 신청 ──
     with tab_request:
         if st.session_state.req_sent:
-            st.success("✅ 신청이 완료됐습니다! 관리자 승인 후 코드를 전달드립니다.")
+            st.success("✅ 신청이 완료됐습니다! 관리자 승인 후 텔레그램으로 코드가 발송됩니다.")
         else:
+            st.info("💡 **신청 방법**\n\n1️⃣ 텔레그램에서 **@bosschecklist_bot** 검색 → **/start** 전송\n2️⃣ 봇이 보내준 숫자 ID를 아래에 입력\n3️⃣ 신청 완료 후 텔레그램으로 코드 자동 수신")
             req_name    = st.text_input("이름 *", placeholder="홍길동")
-            req_contact = st.text_input("연락처 * (이메일 또는 전화번호)", placeholder="010-0000-0000")
+            req_contact = st.text_input("연락처 *", placeholder="010-0000-0000")
             req_org     = st.text_input("소속 (선택)", placeholder="회사명 또는 기관명")
+            req_tg_id   = st.text_input("텔레그램 Chat ID *",
+                                        placeholder="@bosschecklist_bot 에서 /start 후 받은 숫자",
+                                        help="텔레그램 @bosschecklist_bot 에 /start 를 보내면 숫자 ID가 표시됩니다")
 
             if st.button("📨 사용 신청하기", use_container_width=True, type="primary"):
-                if not req_name or not req_contact:
-                    st.error("이름과 연락처는 필수입니다.")
+                if not req_name or not req_contact or not req_tg_id:
+                    st.error("이름, 연락처, 텔레그램 Chat ID는 필수입니다.")
                 else:
+                    # GitHub에 신청 저장
+                    _gh_save_request_item(req_name, req_contact, req_org, req_tg_id.strip())
+                    # 관리자 텔레그램 알림
                     msg = (f"📋 <b>사업승인 체크리스트 사용 신청</b>\n\n"
                            f"👤 이름: {req_name}\n"
                            f"📞 연락처: {req_contact}\n"
-                           f"🏢 소속: {req_org if req_org else '미입력'}\n\n"
-                           f"✅ 승인하시려면 아래 관리자 페이지에서 코드를 발급해주세요.")
+                           f"🏢 소속: {req_org if req_org else '미입력'}\n"
+                           f"💬 텔레그램 ID: <code>{req_tg_id.strip()}</code>\n\n"
+                           f"✅ 관리자 패널 → [대기 신청] 에서 승인하시면 자동 발송됩니다.")
                     _tg_send(TG_TOKEN, TG_CHAT_ID, msg)
                     st.session_state.req_sent = True
                     st.rerun()
 
-    # ── 관리자 패널 (숨김) ──
+    # ── 관리자 패널 ──
     with st.expander("🔧 관리자", expanded=False):
-        admin_pw = st.text_input("관리자 비밀번호", type="password", key="admin_pw")
-        try:
-            admin_secret = st.secrets.get("ADMIN_PW", "")
-        except Exception:
-            admin_secret = ""
+        admin_pw_input = st.text_input("관리자 비밀번호", type="password", key="admin_pw")
 
-        if admin_pw == admin_secret and admin_secret:
+        if admin_pw_input == ADMIN_PW and ADMIN_PW:
             st.success("✅ 관리자 모드")
-            st.markdown("**신규 코드 발급**")
-            new_user = st.text_input("수신자 이름", key="new_user")
-            if st.button("🎲 코드 생성 및 텔레그램 발송", key="gen_code"):
+
+            # ── 대기 신청 목록 (GitHub requests.json) ──
+            st.markdown("---")
+            st.markdown("**📥 대기 신청 목록 — 승인 클릭 시 코드 자동 발송**")
+            if st.button("🔄 목록 새로고침", key="refresh_reqs"):
+                st.rerun()
+            reqs_list, _ = _gh_get_requests_list()
+            pending = [r for r in reqs_list if r.get("status") == "pending"]
+            if not pending:
+                st.info("대기 중인 신청이 없습니다.")
+            else:
+                for r in pending:
+                    with st.container():
+                        c1, c2 = st.columns([4, 2])
+                        c1.markdown(
+                            f"👤 **{r['name']}** | 📞 {r['contact']}"
+                            f"{' | 🏢 ' + r['org'] if r.get('org') else ''}\n\n"
+                            f"💬 TG ID: `{r.get('tg_id','없음')}` | 🕐 {r.get('time','')}"
+                        )
+                        if c2.button("✅ 승인 & 발송", key=f"req_{r['id']}"):
+                            new_code = _gen_code()
+                            _add_code(new_code, r['name'])
+                            tg_id = r.get("tg_id", "")
+                            sent = False
+                            if tg_id:
+                                sent = _tg_send(TG_TOKEN, tg_id,
+                                    f"🔑 <b>사업승인 체크리스트 승인 코드</b>\n\n"
+                                    f"👤 {r['name']}님, 아래 코드를 입력하시면 바로 사용 가능합니다.\n\n"
+                                    f"🔐 코드: <code>{new_code}</code>\n\n"
+                                    f"⚠️ 코드는 1회만 사용 가능하며, 이후 90일간 재인증 없이 사용 가능합니다.")
+                            _gh_approve_request_item(r['id'], new_code)
+                            _tg_send(TG_TOKEN, TG_CHAT_ID,
+                                f"✅ <b>승인 완료</b>\n👤 {r['name']}\n🔐 {new_code}\n"
+                                f"{'📤 자동 발송 성공' if sent else '⚠️ 발송 실패 — tg_id 확인 필요'}")
+                            if sent:
+                                st.success(f"✅ {r['name']}님 텔레그램으로 코드 자동 발송 완료!")
+                            else:
+                                st.warning(f"⚠️ 자동 발송 실패. 코드: **{new_code}** — 수동 전달 필요")
+                            st.rerun()
+
+            # ── 봇 메시지 보낸 사용자 직접 승인 ──
+            st.markdown("---")
+            st.markdown("**📲 텔레그램 봇 신청자 (직접 승인)**")
+            tg_users = _tg_get_updates(TG_TOKEN)
+            if tg_users:
+                for u in tg_users[-10:]:
+                    display_name = f"{u['first_name']} {u['last_name']}".strip() or u['username'] or u['chat_id']
+                    col_u, col_b = st.columns([3, 2])
+                    col_u.write(f"👤 {display_name} (ID: {u['chat_id']})")
+                    if col_b.button(f"✅ 승인", key=f"approve_{u['chat_id']}"):
+                        new_code = _gen_code()
+                        _add_code(new_code, display_name)
+                        ok = _tg_send(TG_TOKEN, u['chat_id'],
+                            f"🔑 <b>사업승인 체크리스트 승인 코드</b>\n\n"
+                            f"👤 {display_name}님\n🔐 코드: <code>{new_code}</code>\n\n"
+                            f"⚠️ 1회 사용 후 90일간 재인증 불필요")
+                        _tg_send(TG_TOKEN, TG_CHAT_ID,
+                            f"✅ <b>승인</b>\n👤 {display_name}\n🔐 {new_code}\n{'📤 발송 성공' if ok else '⚠️ 발송 실패'}")
+                        if ok: st.success(f"✅ {display_name} 발송 완료!")
+                        else: st.warning(f"⚠️ 발송 실패. 코드: **{new_code}**")
+
+            # ── 수동 코드 발급 ──
+            st.markdown("---")
+            st.markdown("**✍️ 수동 코드 발급**")
+            manual_name = st.text_input("수신자 이름", key="manual_name")
+            if st.button("🎲 코드 생성 (텔레그램 수동 전달)", key="gen_manual"):
                 new_code = _gen_code()
-                saved = _gh_add_code(new_code)
-                msg = (f"🔑 <b>승인 코드 발급</b>\n\n"
-                       f"👤 수신자: {new_user}\n"
-                       f"🔐 코드: <code>{new_code}</code>\n\n"
-                       f"{'✅ GitHub 자동 저장 완료' if saved else '⚠️ GitHub 저장 실패 - Secrets에 수동 추가 필요'}")
-                _tg_send(TG_TOKEN, TG_CHAT_ID, msg)
-                if saved:
-                    st.success(f"✅ 코드 자동 저장 완료!\n\n코드: **{new_code}**\n\n텔레그램으로 코드를 전달하세요.")
-                else:
-                    st.warning(f"⚠️ GitHub 자동 저장 실패.\n\n코드: **{new_code}**\n\nStreamlit Secrets > ACCESS_CODES 에 수동으로 추가해주세요.")
-        elif admin_pw:
+                _add_code(new_code, manual_name)
+                _tg_send(TG_TOKEN, TG_CHAT_ID,
+                    f"🔑 <b>수동 코드 발급</b>\n👤 {manual_name}\n🔐 <code>{new_code}</code>")
+                st.success(f"코드: **{new_code}** — 관리자 텔레그램으로 발송됐습니다.")
+
+            # ── 현재 유효 코드 목록 ──
+            st.markdown("---")
+            st.markdown("**📋 현재 유효 코드 목록**")
+            codes_now, _ = _get_codes_dict()
+            if codes_now:
+                for c, n in codes_now.items():
+                    st.code(f"{c}  ←  {n or '(이름 없음)'}")
+            else:
+                st.info("현재 유효한 코드가 없습니다.")
+
+        elif admin_pw_input:
             st.error("비밀번호가 틀렸습니다.")
 
     st.markdown("""
@@ -271,6 +494,15 @@ if not st.session_state.auth_ok:
 # 상태 저장소 초기화 (분석 버튼 클릭 여부 저장)
 if 'analyzed' not in st.session_state:
     st.session_state.analyzed = False
+
+def _comma_input(label, default_val, key, help_text=None):
+    """천단위 쉼표가 표시되는 숫자 입력"""
+    raw = st.text_input(label, value=f"{int(default_val):,}", key=key,
+                        help=help_text, placeholder="숫자 입력")
+    try:
+        return int(raw.replace(",", "").replace("，", "").replace(" ", ""))
+    except Exception:
+        return default_val
 
 st.sidebar.markdown("### 🔄 시스템 제어")
 col_btn1, col_btn2 = st.sidebar.columns(2)
@@ -300,35 +532,35 @@ with st.sidebar:
     st.divider()
     # 면적 입력
     col1, col2 = st.columns(2)
-    land_area  = col1.number_input("대지면적(㎡)", value=10000, step=1, format="%d")
-    total_area = col2.number_input("연면적(㎡)", value=50000, step=1, format="%d")
-    col1.caption(f"▸ {land_area:,} ㎡")
-    col2.caption(f"▸ {total_area:,} ㎡")
-    under_area = st.number_input("지하층 연면적(㎡)", value=10000, step=1, format="%d")
-    st.caption(f"▸ {under_area:,} ㎡")
+    with col1:
+        land_area  = _comma_input("대지면적(㎡)", 10000, "land_area")
+    with col2:
+        total_area = _comma_input("연면적(㎡)", 50000, "total_area")
+    under_area = _comma_input("지하층 연면적(㎡)", 10000, "under_area")
     above_area = total_area - under_area
-    st.text_input("지상층 연면적(㎡)", f"{above_area:,}", disabled=True)
-    parking    = st.number_input("주차장(기계실) 면적(㎡)", value=10000, step=1, format="%d")
-    st.caption(f"▸ {parking:,} ㎡")
+    st.text_input("지상층 연면적(㎡)", f"{above_area:,}", disabled=True, key="above_area_disp")
+    parking    = _comma_input("주차장(기계실) 면적(㎡)", 10000, "parking")
     excl_area  = total_area - parking
-    st.text_input("제외 면적(㎡)", f"{excl_area:,}", disabled=True)
+    st.text_input("제외 면적(㎡)", f"{excl_area:,}", disabled=True, key="excl_area_disp")
 
-    st.divider()
     # 건폐율/용적률/건축면적
     col_a, col_b = st.columns(2)
-    build_coverage = col_a.number_input("건폐율(%)", value=60, step=1, format="%d")
-    floor_area_ratio = col_b.number_input("용적률(%)", value=250, step=1, format="%d")
-    arch_area = st.number_input("건축면적(㎡)", value=3000, step=1, format="%d")
-    st.caption(f"▸ {arch_area:,} ㎡")
+    with col_a:
+        build_coverage = _comma_input("건폐율(%)", 60, "build_coverage")
+    with col_b:
+        floor_area_ratio = _comma_input("용적률(%)", 250, "floor_area_ratio")
+    arch_area = _comma_input("건축면적(㎡)", 3000, "arch_area")
 
     st.divider()
     # 층수/높이/굴착
     col3, col4 = st.columns(2)
-    b_floors = col3.number_input("지하층수", value=2)
-    g_floors = col4.number_input("지상층수", value=20)
-    max_h    = st.number_input("최고높이(m)", value=60)
-    depth    = st.number_input("굴착깊이(m)", value=12)
-    households = st.number_input("세대수", value=500)
+    with col3:
+        b_floors = _comma_input("지하층수", 2, "b_floors")
+    with col4:
+        g_floors = _comma_input("지상층수", 20, "g_floors")
+    max_h    = _comma_input("최고높이(m)", 60, "max_h")
+    depth    = _comma_input("굴착깊이(m)", 12, "depth")
+    households = _comma_input("세대수", 500, "households")
 
     st.divider()
     edu        = st.selectbox("교육시설", ["해당없음", "200m 이내 존재"])
@@ -336,7 +568,7 @@ with st.sidebar:
     landsc     = st.selectbox("경관지구", ["해당없음", "해당"])
     under_link = st.selectbox("지하연계 복합건축", ["해당없음", "해당"])
     urban      = st.selectbox("지역구분", ["도시지역", "도시외지역"])
-    rail       = st.number_input("철도거리(m)", value=0)
+    rail       = _comma_input("철도거리(m)", 0, "rail")
     public_inst = st.selectbox("공공기관 여부", ["민간", "공공기관"])
 
     usage_options = ["공동주택(아파트)", "주상복합", "오피스텔", "다가구주택", "연립주택 및 다세대주택", "제1종 근린생활시설(일용품 소매점)", "제2종 근린생활시설(다중생활시설)", "문화 및 집회시설(동·식물원 제외)", "교육연구시설(연구소·도서관 제외)", "노유자시설", "수련시설", "업무시설", "신축 공공건축물/교통수단·여객시설"]
