@@ -367,13 +367,13 @@ if not st.session_state.auth_ok:
         if st.session_state.req_sent:
             st.success("✅ 신청이 완료됐습니다! 관리자 승인 후 텔레그램으로 코드가 발송됩니다.")
         else:
-            st.info("💡 **신청 방법**\n\n1️⃣ 텔레그램에서 **@bosschecklist_bot** 검색 → **/start** 전송\n2️⃣ 봇이 보내준 숫자 ID를 아래에 입력\n3️⃣ 신청 완료 후 텔레그램으로 코드 자동 수신")
+            st.info("💡 **신청 방법**\n\n1️⃣ 텔레그램에서 **@userinfobot** 검색 → **/start** 전송\n2️⃣ 봇이 보내준 **숫자 ID** (예: 123456789) 를 아래에 입력\n3️⃣ 신청 완료 후 텔레그램으로 코드 자동 수신")
             req_name    = st.text_input("이름 *", placeholder="홍길동")
             req_contact = st.text_input("연락처 *", placeholder="010-0000-0000")
             req_org     = st.text_input("소속 (선택)", placeholder="회사명 또는 기관명")
             req_tg_id   = st.text_input("텔레그램 Chat ID *",
-                                        placeholder="@bosschecklist_bot 에서 /start 후 받은 숫자",
-                                        help="텔레그램 @bosschecklist_bot 에 /start 를 보내면 숫자 ID가 표시됩니다")
+                                        placeholder="예) 123456789",
+                                        help="텔레그램에서 @userinfobot 검색 → /start 입력 → 표시되는 숫자 ID 입력")
 
             if st.button("📨 사용 신청하기", use_container_width=True, type="primary"):
                 if not req_name or not req_contact or not req_tg_id:
