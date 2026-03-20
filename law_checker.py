@@ -100,7 +100,7 @@ def check_law_changes():
         "content-type": "application/json"
     }
     body = json.dumps({
-        "model": "claude-opus-4-6",
+        "model": "claude-sonnet-4-20250514",
         "max_tokens": 4000,
         "messages": [{"role": "user", "content": prompt}]
     }).encode("utf-8")
