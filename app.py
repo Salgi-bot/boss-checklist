@@ -274,6 +274,9 @@ for _k, _v in [("auth_ok", False), ("auth_attempts", 0),
     if _k not in st.session_state:
         st.session_state[_k] = _v
 
+# [테스트 모드] 로그인 임시 비활성화 — 운영 전환 시 아래 한 줄 제거
+st.session_state.auth_ok = True
+
 # ── 기기 토큰 자동 확인 (query param) ──
 _dt_param = st.query_params.get("dt", "")
 if _dt_param and not st.session_state.auth_ok:
@@ -622,12 +625,14 @@ if not st.session_state.auth_ok:
 if 'analyzed' not in st.session_state:
     st.session_state.analyzed = False
 
-def _comma_input(label, default_val, key, help_text=None):
-    """천단위 쉼표가 표시되는 숫자 입력"""
-    raw = st.text_input(label, value=f"{int(default_val):,}", key=key,
+def _comma_input(label, default_val, key, help_text=None, as_float=False):
+    """천단위 쉼표가 표시되는 숫자 입력 (as_float=True 시 소수점 지원)"""
+    display = f"{default_val:g}" if as_float else f"{int(default_val):,}"
+    raw = st.text_input(label, value=display, key=key,
                         help=help_text, placeholder="숫자 입력")
     try:
-        return int(raw.replace(",", "").replace("，", "").replace(" ", ""))
+        cleaned = raw.replace(",", "").replace("，", "").replace(" ", "")
+        return float(cleaned) if as_float else int(cleaned)
     except Exception:
         return default_val
 
@@ -636,7 +641,9 @@ col_btn1, col_btn2 = st.sidebar.columns(2)
 
 # [수정 1] 리셋 버튼
 if col_btn1.button("🔄 초기화", use_container_width=True):
+    _save = {k: st.session_state[k] for k in ("auth_ok", "is_admin", "device_token") if k in st.session_state}
     st.session_state.clear()
+    st.session_state.update(_save)
     st.rerun()
 
 # [수정 2] 분석 실행 버튼 (누르면 상태가 True로 바뀜)
@@ -685,8 +692,8 @@ with st.sidebar:
         b_floors = _comma_input("지하층수", 2, "b_floors")
     with col4:
         g_floors = _comma_input("지상층수", 20, "g_floors")
-    max_h    = _comma_input("최고높이(m)", 60, "max_h")
-    depth    = _comma_input("굴착깊이(m)", 12, "depth")
+    max_h    = _comma_input("최고높이(m)", 60, "max_h", as_float=True)
+    depth    = _comma_input("굴착깊이(m)", 12, "depth", as_float=True)
     households = _comma_input("세대수", 500, "households")
 
     st.divider()
@@ -752,6 +759,7 @@ if st.session_state.analyzed:
 
     # ── 42개 항목 (제출시기 추가) ──────────────────────────────────
     # (no, 항목명, 판정, 법적근거, 제출시기, 비고)
+    _item34 = "가" if (has_gong and HH >= 300) else "부"
     items = [
         (1,  "구조 성능기반설계",          "판단 유보", "내진설계 지침",         "구조 심의 시",          "구조 심의 시"),
         (2,  "설계안전보건대장",            "가" if cost_opt=="50억원 이상" else "부", "안전보건대장 고시", "공사 계약 체결 시",     f"공사비 50억 이상, 기본-설계-공사 3단계 분리 명기 (현재: {cost_opt})"),
@@ -782,18 +790,18 @@ if st.session_state.analyzed:
         (27, "풍동실험",                   "판단 유보",                         "건축구조기준",           "구조 심의 시",          "협력업체 확인필요"),
         (28, "건축물 교통영향평가",         "판단 유보",                         "도시교통정비법",         "-",                     "50층↑ 대단지 아파트 등 상급관청 단독 심의 격상 대상 여부 확인"),
         (29, "장애물 없는 생활환경(BF) 인증", "가" if is_public or "신축 공공건축물/교통수단·여객시설" in usages or TF>=50 or H>=200 or is_under_link else "부", "이동편의증진법", "예비:본인증전 / 본:사용승인후", "신축 공공·여객시설 + 민간 초고층(50층/200m↑) 및 지하연계 복합건축물 의무화"),
-        (30, "에너지사용계획 협의",         "판단 유보",                         "에너지이용합리화법",      "사업승인 신청 전",       "연면적 약 30만㎡↑ 해당 예상 (민간 60만㎡↑)"),
+        (30, "에너지사용계획 협의",         "가" if (is_public and T >= 300000) or (not is_public and T >= 600000) else "부", "에너지이용합리화법", "사업승인 신청 전", f"공공 30만㎡↑ / 민간 60만㎡↑ (현재: {T:,}㎡, {'공공' if is_public else '민간'})"),
         (31, "건축물 안전영향평가",         "가" if TF>=50 or H>=200 or (GF>=16 and T>=100000) else "부", "건축법 13조의2", "건축 허가 전", f"50층/200m↑ 또는 16층+10만㎡ (현재: {TF}층, {H}m, {T:,}㎡)"),
         (32, "사전재난영향성검토",          "가" if TF>=50 or H>=200 or is_under_link else "부", "초고층재난법", "허가등을 하기 전", f"50층/200m↑ 또는 지하연계복합 (현재: {TF}층, {H}m)"),
-        (33, "개발사업의 경관심의대상",     "판단 유보",                         "경관법 시행령",          "도시계획심의시",         f"대지면적 3만㎡↑ 개발사업 (현재: {L:,}㎡)"),
-        (34, "지구단위계획구역 지정",       "판단 유보",                         "도시계획조례",           "도시계획심의시",         "300세대↑ 아파트 또는 상업지역 200세대↑ 등"),
-        (35, "지구단위계획변경",            "판단 유보",                         "관련 규정",             "건축심의 전",            "34번 지정 시 연계 발주"),
-        (36, "사전경관계획 심의",           "판단 유보",                         "경관법 시행령",          "도시계획심의시",         f"대지 30만㎡↑ 또는 연면적 20만㎡↑ (현재: {L:,}㎡, {T:,}㎡)"),
+        (33, "개발사업의 경관심의대상",     "가" if L >= 30000 else "부",        "경관법 시행령",          "도시계획심의시",         f"대지면적 3만㎡↑ 개발사업 (현재: {L:,}㎡)"),
+        (34, "지구단위계획구역 지정",       _item34,                             "도시계획조례",           "도시계획심의시",         f"공동주택 300세대↑ (현재: {HH}세대)"),
+        (35, "지구단위계획변경",            "가" if _item34 == "가" else "부",   "관련 규정",             "건축심의 전",            "34번 지정 시 연계 발주"),
+        (36, "사전경관계획 심의",           "가" if L >= 300000 or T >= 200000 else "부", "경관법 시행령", "도시계획심의시", f"대지 30만㎡↑ 또는 연면적 20만㎡↑ (현재: {L:,}㎡, {T:,}㎡)"),
         (37, "문화재지표조사(현상변경)",    "가" if is_heritage or L>=30000 else "부", "국가유산영향진단법", "실시계획 작성 완료전", f"문화재 200m이내 또는 대지 3만㎡↑ (현재: {L:,}㎡)"),
-        (38, "소규모 재해영향평가",         "판단 유보",                         "자연재해대책법",         "사업계획승인전",         f"대지면적 5천~5만㎡ (현재: {L:,}㎡)"),
-        (39, "재해영향평가",               "판단 유보",                         "자연재해대책법",         "사업계획승인전",         f"대지면적 5만㎡↑ (현재: {L:,}㎡)"),
-        (40, "환경영향평가",               "판단 유보",                         "환경영향평가법",         "사업계획승인전",         f"사업면적 12만5천㎡↑ (현재: {L:,}㎡)"),
-        (41, "소규모 환경영향평가",         "판단 유보",                         "환경영향평가법",         "사업계획승인전",         "도시지역 6만㎡ 미만 / 녹지지역 1만㎡ 미만 (분할 합산 기준)"),
+        (38, "소규모 재해영향평가",         "가" if 5000 <= L < 50000 else "부", "자연재해대책법",         "사업계획승인전",         f"대지면적 5천~5만㎡ (현재: {L:,}㎡)"),
+        (39, "재해영향평가",               "가" if L >= 50000 else "부",        "자연재해대책법",         "사업계획승인전",         f"대지면적 5만㎡↑ (현재: {L:,}㎡)"),
+        (40, "환경영향평가",               "가" if L >= 125000 else "부",       "환경영향평가법",         "사업계획승인전",         f"사업면적 12만5천㎡↑ (현재: {L:,}㎡)"),
+        (41, "소규모 환경영향평가",         "가" if (urban == "도시지역" and 5000 <= L < 60000) or (urban == "도시외지역" and 5000 <= L < 10000) else "부", "환경영향평가법", "사업계획승인전", f"도시지역 5천~6만㎡ / 도시외지역 5천~1만㎡ (현재: {L:,}㎡, {urban})"),
         (42, "지하철(철도) 영향성 검토",   "가" if 0 < rail_D <= 30 else "부",  "철도안전법",            "-",                     f"철도경계선 30m 이내 (현재: {rail_D}m)")
     ]
 
@@ -804,12 +812,12 @@ if st.session_state.analyzed:
         dj_no_base = 43  # 43번부터 시작
         # 대전 특화 1: 민간건축물 녹색건축 설계기준
         daejeon_items.append((dj_no_base, "민간건축물 녹색건축 설계기준 [대전]",
-            "가" if has_gong or excl_A >= 500 else "판단 유보",
+            "가" if has_gong or excl_A >= 500 else "부",
             "대전광역시 조례", "사업계획승인신청시",
             f"주거(세대수)/비주거(연면적) 4개 군 분류, 환경·에너지·신재생에너지 기준 엄격화 (현재: {HH}세대, {excl_A:,}㎡)"))
         # 대전 특화 2: 건축물 경관심의
         daejeon_items.append((dj_no_base+1, "건축물 경관심의 [대전]",
-            "가" if TF >= 21 or T >= 100000 else "판단 유보",
+            "가" if TF >= 21 or T >= 100000 else "부",
             "대전광역시 경관조례", "건축심의시",
             f"21층↑ 또는 10만㎡↑ 원칙, 서구 등 기초자치단체 조례에 따라 미만도 대상 가능 → 대지 위치 확인 필수 (현재: {TF}층, {T:,}㎡)"))
         # 대전 특화 3: 범죄예방 도시디자인 (CPTED)
@@ -819,12 +827,14 @@ if st.session_state.analyzed:
             "5년 단위 기본계획, 출입구·울타리·조경 등 자연적 감시·접근통제 자체방어적 디자인 기준 적용"))
     # ──────────────────────────────────────────────────────────────────────
 
+    ORIGINALLY_HOLD_NOS = {1, 27, 28, 30, 33, 34, 35, 36, 38, 39, 40, 41}
     display_data = []
     cnts = {"target": 0, "non": 0, "hold": 0}
 
     for i in items:
+        was_hold = i[0] in ORIGINALLY_HOLD_NOS and i[2] != "판단 유보"
         if i[2] == "가":
-            res, color, tag = ("◯ 소규모" if i[0] == 38 else "◯ 대상"), "#0052CC", "target"
+            res, color, tag = "◯ 대상", "#0052CC", "target"
             cnts["target"] += 1
         elif i[2] == "판단 유보":
             res, color, tag = "! 판단 유보", "#FF9800", "hold"
@@ -834,11 +844,13 @@ if st.session_state.analyzed:
             cnts["non"] += 1
         display_data.append({"No": i[0], "분석 항목": i[1], "결과": res,
                               "제출시기": i[4], "법적 근거": i[3], "비고": i[5],
-                              "color": color, "tag": tag})
+                              "color": color, "tag": tag, "was_hold": was_hold})
 
     # 대전 특화 항목 추가
+    ORIGINALLY_HOLD_DJ_NOS = {43, 44}
     daejeon_display = []
     for i in daejeon_items:
+        was_hold = i[0] in ORIGINALLY_HOLD_DJ_NOS and i[2] != "판단 유보"
         if i[2] == "가":
             res, color, tag = "◯ 대상", "#007A4D", "target"
             cnts["target"] += 1
@@ -850,7 +862,7 @@ if st.session_state.analyzed:
             cnts["non"] += 1
         daejeon_display.append({"No": i[0], "분석 항목": i[1], "결과": res,
                                  "제출시기": i[4], "법적 근거": i[3], "비고": i[5],
-                                 "color": color, "tag": tag})
+                                 "color": color, "tag": tag, "was_hold": was_hold})
 
     st.subheader(f"📊 [ ◯ 대상: {cnts['target']} ]  [ ✕ 비대상: {cnts['non']} ]  [ ! 유보: {cnts['hold']} ]")
 
@@ -863,7 +875,10 @@ if st.session_state.analyzed:
         cols = st.columns([1, 4, 2, 3, 3, 5])
         cols[0].write(f"**{row['No']}**")
         cols[1].write(row['분석 항목'])
-        cols[2].markdown(f"<span style='color:{row['color']}; font-weight:bold;'>{row['결과']}</span>", unsafe_allow_html=True)
+        if row.get('was_hold'):
+            cols[2].markdown(f"<span style='background:#FFFF00;color:{row['color']};font-weight:bold;padding:2px 6px;border-radius:3px;'>{row['결과']}</span>", unsafe_allow_html=True)
+        else:
+            cols[2].markdown(f"<span style='color:{row['color']}; font-weight:bold;'>{row['결과']}</span>", unsafe_allow_html=True)
         cols[3].write(row['제출시기'])
         cols[4].write(row['법적 근거'])
         cols[5].write(row['비고'])
@@ -879,7 +894,10 @@ if st.session_state.analyzed:
             cols = st.columns([1, 4, 2, 3, 3, 5])
             cols[0].write(f"**{row['No']}**")
             cols[1].write(row['분석 항목'])
-            cols[2].markdown(f"<span style='color:{row['color']}; font-weight:bold;'>{row['결과']}</span>", unsafe_allow_html=True)
+            if row.get('was_hold'):
+                cols[2].markdown(f"<span style='background:#FFFF00;color:{row['color']};font-weight:bold;padding:2px 6px;border-radius:3px;'>{row['결과']}</span>", unsafe_allow_html=True)
+            else:
+                cols[2].markdown(f"<span style='color:{row['color']}; font-weight:bold;'>{row['결과']}</span>", unsafe_allow_html=True)
             cols[3].write(row.get('제출시기', '-'))
             cols[4].write(row['법적 근거'])
             cols[5].write(row['비고'])
@@ -988,6 +1006,9 @@ if st.session_state.analyzed:
             for i, (lines_i, w) in enumerate(zip(all_lines, col_w_local)):
                 pdf.set_font("K", size=font_size)
                 if i == 2:
+                    if r.get('was_hold'):
+                        pdf.set_fill_color(255, 255, 0)
+                        pdf.rect(x0, y0, w, row_h, 'F')  # 노란 배경
                     if r['tag'] == "target": pdf.set_text_color(0, 82, 204)
                     elif r['tag'] == "hold": pdf.set_text_color(255, 152, 0)
                     else: pdf.set_text_color(160, 160, 160)
