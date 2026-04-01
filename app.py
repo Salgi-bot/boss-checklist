@@ -13,7 +13,7 @@ from fpdf import FPDF
 import os
 from datetime import datetime
 
-st.set_page_config(page_title="사업승인 체크 v8.0_Boss", layout="wide")
+st.set_page_config(page_title="사업승인 체크 v8.1_Boss", layout="wide")
 font_path = "fonts/NanumGothic.ttf"
 
 # ── Footer 워터마크 (JS 동적 생성) ─────────────────────────────────────
@@ -39,7 +39,7 @@ _footer_html = """
         var el = document.createElement('div');
         el.id = 'copyright-footer';
         el.innerHTML = 'Copyright &copy; ' + new Date().getFullYear()
-            + ' (주)아이팝엔지니어링 &nbsp;|&nbsp; 사업승인 체크리스트 Web v8.0 &nbsp;|&nbsp; All Rights Reserved.';
+            + ' (주)아이팝엔지니어링 &nbsp;|&nbsp; 사업승인 체크리스트 Web v8.1 &nbsp;|&nbsp; All Rights Reserved.';
         document.body.appendChild(el);
     }
     if(document.readyState === 'loading'){
@@ -141,7 +141,8 @@ with st.sidebar:
     usage_options = ["공동주택(아파트)", "주상복합", "오피스텔", "다가구주택", "연립주택 및 다세대주택", "제1종 근린생활시설(일용품 소매점)", "제2종 근린생활시설(다중생활시설)", "문화 및 집회시설(동·식물원 제외)", "교육연구시설(연구소·도서관 제외)", "노유자시설", "수련시설", "업무시설", "신축 공공건축물/교통수단·여객시설"]
     usages = st.multiselect("용도", usage_options, default=["공동주택(아파트)"])
 
-st.title("■ 사업승인 체크 리스트_Web v8.0")
+st.title("■ 사업승인 체크 리스트_Web v8.1")
+st.caption("🗓️ 최종 수정: 2026-04-01  |  인증 없는 완전 공개 버전")
 
 # 분석 실행 버튼을 눌렀을 때만 아래 내용이 화면에 출력됨
 if st.session_state.analyzed:
@@ -369,7 +370,7 @@ if st.session_state.analyzed:
         # 저작권
         pdf.set_font("K", size=7)
         pdf.set_text_color(150, 150, 150)
-        pdf.cell(0, 5, f"Copyright © {datetime.now().year} (주)아이팝엔지니어링  |  사업승인 체크리스트 Web v8.0  |  All Rights Reserved.", ln=True, align='C')
+        pdf.cell(0, 5, f"Copyright © {datetime.now().year} (주)아이팝엔지니어링  |  사업승인 체크리스트 Web v8.1  |  All Rights Reserved.", ln=True, align='C')
         pdf.set_text_color(0, 0, 0)
         pdf.set_font("K", size=9)
         pdf.ln(2)
