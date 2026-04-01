@@ -1,6 +1,6 @@
 # ============================================================
-#  Copyright (c) 2024 (주)아이팝엔지니어링
-#  All rights reserved.
+#  Copyright (c) 2026 (주)아이팝엔지니어링 (EYEPOP Engineering)
+#  김홍정 All rights reserved.
 #  본 소프트웨어는 (주)아이팝엔지니어링의 지적 재산입니다.
 #  무단 복제, 배포, 수정을 금지합니다.
 #  Unauthorized copying, distribution, or modification
@@ -13,7 +13,7 @@ from fpdf import FPDF
 import os
 from datetime import datetime
 
-st.set_page_config(page_title="사업승인 체크 v8.1_Boss", layout="wide")
+st.set_page_config(page_title="사업승인 체크 v9.0_Boss", layout="wide")
 font_path = "fonts/NanumGothic.ttf"
 
 # ── Footer 워터마크 (JS 동적 생성) ─────────────────────────────────────
@@ -39,7 +39,7 @@ _footer_html = """
         var el = document.createElement('div');
         el.id = 'copyright-footer';
         el.innerHTML = 'Copyright &copy; ' + new Date().getFullYear()
-            + ' (주)아이팝엔지니어링 &nbsp;|&nbsp; 사업승인 체크리스트 Web v8.1 &nbsp;|&nbsp; All Rights Reserved.';
+            + ' (주)아이팝엔지니어링 (EYEPOP Engineering) &nbsp;|&nbsp; 김홍정 &nbsp;|&nbsp; 사업승인 체크리스트 Web v9.0 &nbsp;|&nbsp; All Rights Reserved.';
         document.body.appendChild(el);
     }
     if(document.readyState === 'loading'){
@@ -141,8 +141,8 @@ with st.sidebar:
     usage_options = ["공동주택(아파트)", "주상복합", "오피스텔", "다가구주택", "연립주택 및 다세대주택", "제1종 근린생활시설(일용품 소매점)", "제2종 근린생활시설(다중생활시설)", "문화 및 집회시설(동·식물원 제외)", "교육연구시설(연구소·도서관 제외)", "노유자시설", "수련시설", "업무시설", "신축 공공건축물/교통수단·여객시설"]
     usages = st.multiselect("용도", usage_options, default=["공동주택(아파트)"])
 
-st.title("■ 사업승인 체크 리스트_Web v8.1")
-st.caption("🗓️ 최종 수정: 2026-04-01  |  인증 없는 완전 공개 버전")
+st.title("■ 사업승인 체크 리스트_Web v9.0")
+st.caption("🗓️ 최종 수정: 2026-04-02  |  인증 없는 완전 공개 버전  |  v9.0 법적 근거 전면 검토 반영")
 
 # 분석 실행 버튼을 눌렀을 때만 아래 내용이 화면에 출력됨
 if st.session_state.analyzed:
@@ -195,7 +195,7 @@ if st.session_state.analyzed:
     _item34 = "가" if (has_gong and HH >= 300) else "부"
     items = [
         (1,  "구조 성능기반설계",          "판단 유보", "내진설계 지침",         "구조 심의 시",          "구조 심의 시"),
-        (2,  "설계안전보건대장",            "가" if cost_opt=="50억원 이상" else "부", "안전보건대장 고시", "공사 계약 체결 시",     f"공사비 50억 이상, 기본-설계-공사 3단계 분리 명기 (현재: {cost_opt})"),
+        (2,  "설계안전보건대장",            "가" if cost_opt=="50억원 이상" else "부", "산업안전보건법 제67조 + 고용노동부 고시", "공사 계약 체결 시",     f"공사비 50억 이상, 기본-설계-공사 3단계 분리 명기 (현재: {cost_opt})"),
         (3,  "단지내 주변일조.일영분석",    "가" if has_gong else "부",          "건축법 제61조",         "도시계획심의시",         "공동주택이면 해당"),
         (4,  "단지특화디자인(색채 등)",     "가" if has_gong or has_ju or "오피스텔" in usages else "부", "심의 기준", "건축심의시", "공동/주상/오피스텔 해당"),
         (5,  "소규모 지하안전영향평가",     "가" if 10 <= D < 20 else "부",      "지하안전법",            "사업승인 완료 전",       f"굴착 10~20m 미만, 침하 시 지자체 즉시 통보·응급조치 의무 (현재: {D}m)"),
@@ -205,36 +205,36 @@ if st.session_state.analyzed:
         (9,  "지질조사",                   "가",                                "지하안전 매뉴얼",        "착공시",                "무조건 해당 (지안평 대상시 3공 발주)"),
         (10, "흙막이 설계",                "가" if BF > 0 else "부",            "건축법 시행령",          "인허가시",              f"지하층 있으면 해당 (현재: 지하 {BF}층)"),
         (11, "수량산출서",                 "가" if (has_gong and HH >= 20) or ("단독주택" in usages and HH >= 20) else "부", "제출 기준", "착공시", f"공동주택 20세대/단독주택 20호/도시형생활주택 30세대 이상 (현재: {HH}세대)"),
-        (12, "단지내 소음예측평가",         "가" if is_biz_app else "부",        "주택건설기준 9조",       "사업계획승인신청시",     "사업계획승인 대상 해당"),
+        (12, "단지내 소음예측평가",         "가" if is_biz_app else "부",        "주택건설기준 제9조",     "사업계획승인신청시",     "사업계획승인 대상 해당 (30세대↑ 기준 확인 — 주택법 제15조 적용 세대수 기준과 일치)"),
         (13, "범죄예방 건축기준",           "가" if any(u in c10_targets for u in usages) else "부", "건축법 53조의2", "허가신청", "500세대 미만 아파트·다가구·다세대·연립·오피스텔 등 전면 의무 적용 확대"),
         (14, "에너지절약설계기준",          "가" if excl_A >= 500 or has_gong else "부", "녹색건축물법", "사업계획승인신청시", f"비주거 500㎡이상 또는 공동주택 (현재: {excl_A:,}㎡)"),
         (15, "수질오염물질 총량제",         "가" if (has_gong and HH>=30) or (has_ju and HH>=30) else "부", "오염총량방침", "사업계획승인신청시", f"30세대 이상 공동주택 또는 주상복합 (현재: {HH}세대)"),
         (16, "녹색건축인증",               "가" if ((has_gong and HH>=30) or excl_A>=500) else "부", "녹색건축물법", "사업승인 완료 후", f"주거30세대/비주거500㎡ (현재: {HH}세대, {excl_A:,}㎡)"),
-        (17, "제로에너지건축물 인증",       "가" if (has_gong and HH>=30) or (is_public and T>=500) or (T>=1000 and ("업무시설" in usages or is_public)) else "부", "녹색건축물법", "예비:사업승인후 / 본:사용승인후", f"공공건축물 500㎡↑ / 민간·공공 공동주택 30세대↑ (현재: {HH}세대, {T:,}㎡)"),
+        (17, "제로에너지건축물 인증",       "가" if (has_gong and HH>=30) or (is_public and T>=500) or (T>=1000 and ("업무시설" in usages or is_public)) else "부", "녹색건축물법 제17조", "예비:사업승인후 / 본:사용승인후", f"공공건축물 500㎡↑ / 민간·공공 공동주택 30세대↑ / 업무시설 1,000㎡↑ 공공 의무화(민간 시행 시점 지자체 확인 필요) (현재: {HH}세대, {T:,}㎡)"),
         (18, "에너지절약형 친환경주택",     "가" if has_gong and HH>=30 and is_biz_app else "부", "주택건설기준 64조", "사업계획승인신청시", f"30세대 이상 사업승인 공동주택 (현재: {HH}세대)"),
         (19, "건강친화형 주택 건설기준",    "가" if has_gong and HH>=500 else "부", "주택건설기준 65조", "사업계획승인신청시", f"500세대↑ 공동주택, 감리자 이행확인서 제출 (현재: {HH}세대)"),
         (20, "공동주택 결로 방지 설계",     "가" if has_gong and HH>=500 else "부", "주택건설기준 14조", "착공신고 시", f"500세대 이상 공동주택 (현재: {HH}세대)"),
-        (21, "장수명 주택 건설인증",        "가" if has_gong and HH>=1000 else "부", "주택건설기준 65조", "사업계획승인 신청 전", f"1,000세대↑ 공동주택, 설계기준강도 21MPa 상향 (현재: {HH}세대)"),
-        (22, "교육환경평가서",             "가" if is_edu and (T>=100000 or TF>21) else "부", "도정법 28조", "사업계획 승인 전", f"학교 200m이내 + 10만㎡ 또는 21층 초과, 유치원·대안학교 포함 (현재: {T:,}㎡, {TF}층)"),
+        (21, "장수명 주택 건설인증",        "가" if has_gong and HH>=1000 else "부", "주택건설기준 제65조의2", "사업계획승인 신청 전", f"1,000세대↑ 공동주택, 설계기준강도 21MPa 상향 (현재: {HH}세대)"),
+        (22, "교육환경평가서",             "가" if is_edu and (T>=100000 or HH>=100) else "부", "교육환경보호법 제6조·시행령 제23조", "사업계획 승인 전", f"학교 200m이내 + 연면적 10만㎡↑ 또는 100세대↑ 공동주택 (21층 초과 기준 삭제), 유치원·대안학교 포함 (현재: {T:,}㎡, {HH}세대)"),
         (23, "에너지소비 총량제(ECO2)",    "가" if (excl_A>=3000 and any(u in ["업무시설", "교육연구시설(연구소·도서관 제외)"] for u in usages)) or (is_public and T>=500) else "부", "에너지설계기준", "사업계획승인신청시", f"3000㎡↑ 업무/교육, 500㎡↑ 공공 (현재: {excl_A:,}㎡, {T:,}㎡)"),
         (24, "제로에너지건축물 (공공) ※17번 병합", "부", "녹색건축물법", "-", "※ v8.0: 17번 항목으로 병합됨 (별도 항목 비활성화)"),
         (25, "건축물의 경관심의대상",       "가" if is_landscape else "부",      "경관조례",              "건축심의시",            "경관지구 및 중점경관관리구역"),
-        (26, "성능위주 소방설계",           "가" if (has_gong and (TF>=50 or H>=200)) or (not (has_gong and len(usages)==1) and (TF>=30 or H>=120)) else "부", "소방시설법", "건축심의 신청전", f"아파트 50층/200m↑ / 일반 30층/120m↑ (현재: {H}m, {TF}층)"),
+        (26, "성능위주 소방설계",           "가" if (has_gong and (TF>=50 or H>=200)) or (not (has_gong and len(usages)==1) and (TF>=30 or H>=120)) else "부", "소방시설법 제8조", "건축심의 신청전", f"아파트 50층/200m↑ / 일반 30층/120m↑ (현재: {H}m, {TF}층)"),
         (27, "풍동실험",                   "판단 유보",                         "건축구조기준",           "구조 심의 시",          "협력업체 확인필요"),
         (28, "건축물 교통영향평가",         "판단 유보",                         "도시교통정비법",         "-",                     "50층↑ 대단지 아파트 등 상급관청 단독 심의 격상 대상 여부 확인"),
-        (29, "장애물 없는 생활환경(BF) 인증", "가" if is_public or "신축 공공건축물/교통수단·여객시설" in usages or TF>=50 or H>=200 or is_under_link else "부", "이동편의증진법", "예비:본인증전 / 본:사용승인후", "신축 공공·여객시설 + 민간 초고층(50층/200m↑) 및 지하연계 복합건축물 의무화"),
-        (30, "에너지사용계획 협의",         "가" if (is_public and T >= 300000) or (not is_public and T >= 600000) else "부", "에너지이용합리화법", "사업승인 신청 전", f"공공 30만㎡↑ / 민간 60만㎡↑ (현재: {T:,}㎡, {'공공' if is_public else '민간'})"),
-        (31, "건축물 안전영향평가",         "가" if TF>=50 or H>=200 or (GF>=16 and T>=100000) else "부", "건축법 13조의2", "건축 허가 전", f"50층/200m↑ 또는 16층+10만㎡ (현재: {TF}층, {H}m, {T:,}㎡)"),
+        (29, "장애물 없는 생활환경(BF) 인증", "가" if is_public or "신축 공공건축물/교통수단·여객시설" in usages or TF>=50 or H>=200 or is_under_link else "부", "장애인편의법 제10조의2 + 초고층재난법 제9조", "예비:본인증전 / 본:사용승인후", "신축 공공·여객시설 + 민간 초고층(50층/200m↑) 및 지하연계 복합건축물 의무화"),
+        (30, "에너지사용계획 협의",         "가" if (is_public and T >= 300000) or (not is_public and T >= 600000) else "부", "에너지이용합리화법 제10조 + 산업부 고시", "사업승인 신청 전", f"공공 30만㎡↑ / 민간 60만㎡↑ (현재: {T:,}㎡, {'공공' if is_public else '민간'})"),
+        (31, "건축물 안전영향평가",         "가" if TF>=50 or H>=200 or (GF>=16 and T>=100000) else "부", "건축법 제13조의2 + 시행령 제10조의3", "건축 허가 전", f"50층↑ OR 200m↑ OR (16층↑ AND 10만㎡↑) (현재: {TF}층, {H}m, {T:,}㎡)"),
         (32, "사전재난영향성검토",          "가" if TF>=50 or H>=200 or is_under_link else "부", "초고층재난법", "허가등을 하기 전", f"50층/200m↑ 또는 지하연계복합 (현재: {TF}층, {H}m)"),
-        (33, "개발사업의 경관심의대상",     "가" if L >= 30000 else "부",        "경관법 시행령",          "도시계획심의시",         f"대지면적 3만㎡↑ 개발사업 (현재: {L:,}㎡)"),
-        (34, "지구단위계획구역 지정",       _item34,                             "도시계획조례",           "도시계획심의시",         f"공동주택 300세대↑ (현재: {HH}세대)"),
+        (33, "개발사업의 경관심의대상",     "가" if L >= 30000 else "부",        "경관법 시행령 [별표]",   "도시계획심의시",         f"사업유형별 면적 기준 상이 — 주거:3만㎡↑, 일반개발:5만㎡↑ 등 별표 세분화 기준 확인 필요 (현재: {L:,}㎡)"),
+        (34, "지구단위계획구역 지정",       _item34,                             "국토계획법 제51조제1항제8호 + 도시계획조례", "도시계획심의시", f"공동주택 300세대↑ (현재: {HH}세대)"),
         (35, "지구단위계획변경",            "가" if _item34 == "가" else "부",   "관련 규정",             "건축심의 전",            "34번 지정 시 연계 발주"),
         (36, "사전경관계획 심의",           "가" if L >= 300000 or T >= 200000 else "부", "경관법 시행령", "도시계획심의시", f"대지 30만㎡↑ 또는 연면적 20만㎡↑ (현재: {L:,}㎡, {T:,}㎡)"),
-        (37, "문화재지표조사(현상변경)",    "가" if is_heritage or L>=30000 else "부", "국가유산영향진단법", "실시계획 작성 완료전", f"문화재 200m이내 또는 대지 3만㎡↑ (현재: {L:,}㎡)"),
-        (38, "소규모 재해영향평가",         "가" if 5000 <= L < 50000 else "부", "자연재해대책법",         "사업계획승인전",         f"대지면적 5천~5만㎡ (현재: {L:,}㎡)"),
+        (37, "문화재지표조사(현상변경)",    "가" if is_heritage or L>=30000 else "부", "매장유산보호법 제6조 + 국가유산기본법", "실시계획 작성 완료전", f"문화재 200m이내 또는 대지 3만㎡↑ (2024 국가유산기본법 전환 반영) (현재: {L:,}㎡)"),
+        (38, "소규모 재해영향평가",         "가" if (urban=="도시지역" and 10000 <= L < 50000) or (urban!="도시지역" and 5000 <= L < 50000) else "부", "자연재해대책법 시행령 별표1", "사업계획승인전", f"도시지역 1만~5만㎡ / 관리·농림지역 5천~5만㎡ (현재: {L:,}㎡, {urban})"),
         (39, "재해영향평가",               "가" if L >= 50000 else "부",        "자연재해대책법",         "사업계획승인전",         f"대지면적 5만㎡↑ (현재: {L:,}㎡)"),
-        (40, "환경영향평가",               "가" if L >= 125000 else "부",       "환경영향평가법",         "사업계획승인전",         f"사업면적 12만5천㎡↑ (현재: {L:,}㎡)"),
-        (41, "소규모 환경영향평가",         "가" if (urban == "도시지역" and 5000 <= L < 60000) or (urban == "도시외지역" and 5000 <= L < 10000) else "부", "환경영향평가법", "사업계획승인전", f"도시지역 5천~6만㎡ / 도시외지역 5천~1만㎡ (현재: {L:,}㎡, {urban})"),
+        (40, "환경영향평가",               "가" if L >= 125000 else "부",       "환경영향평가법",         "사업계획승인전",         f"일반기준 25만㎡↑, 12만5천㎡는 특정 지역·유형에 한함 — 시행령 [별표 3] 사업유형별 기준 확인 (현재: {L:,}㎡)"),
+        (41, "소규모 환경영향평가",         "가" if (urban == "도시지역" and 5000 <= L < 60000) or (urban == "도시외지역" and 5000 <= L < 10000) else "부", "환경영향평가법 시행령 [별표 4]", "사업계획승인전", f"도시지역 5천~6만㎡(상한은 사업유형별 상이) / 도시외지역 5천~1만㎡ — 시행령 별표4 사업유형별 세분화 기준 확인 (현재: {L:,}㎡, {urban})"),
         (42, "지하철(철도) 영향성 검토",   "가" if 0 < rail_D <= 30 else "부",  "철도안전법",            "-",                     f"철도경계선 30m 이내 (현재: {rail_D}m)")
     ]
 
@@ -257,11 +257,14 @@ if st.session_state.analyzed:
             "5년 단위 기본계획, 출입구·울타리·조경 등 자연적 감시·접근통제 자체방어적 디자인 기준 적용"))
 
     ORIGINALLY_HOLD_NOS = {1, 27, 28, 30, 33, 34, 35, 36, 38, 39, 40, 41}
+    # v9.0 수정 항목 (🔴 즉시 5개 + 🟡 권장 10개)
+    CORRECTED_NOS = {2, 12, 17, 21, 22, 26, 29, 30, 31, 33, 34, 37, 38, 40, 41}
     display_data = []
     cnts = {"target": 0, "non": 0, "hold": 0}
 
     for i in items:
         was_hold = i[0] in ORIGINALLY_HOLD_NOS and i[2] != "판단 유보"
+        was_corrected = i[0] in CORRECTED_NOS
         if i[2] == "가":
             res, color, tag = "◯ 대상", "#0052CC", "target"
             cnts["target"] += 1
@@ -273,7 +276,8 @@ if st.session_state.analyzed:
             cnts["non"] += 1
         display_data.append({"No": i[0], "분석 항목": i[1], "결과": res,
                               "제출시기": i[4], "법적 근거": i[3], "비고": i[5],
-                              "color": color, "tag": tag, "was_hold": was_hold})
+                              "color": color, "tag": tag, "was_hold": was_hold,
+                              "was_corrected": was_corrected})
 
     # 대전 특화 항목 추가
     ORIGINALLY_HOLD_DJ_NOS = {43, 44}
@@ -294,6 +298,7 @@ if st.session_state.analyzed:
                                  "color": color, "tag": tag, "was_hold": was_hold})
 
     st.subheader(f"📊 [ ◯ 대상: {cnts['target']} ]  [ ✕ 비대상: {cnts['non']} ]  [ ! 유보: {cnts['hold']} ]")
+    st.markdown("<span style='color:#CC0000;font-size:12px;'>🔴 붉은색 항목: v9.0 법적 근거 수정 반영</span>", unsafe_allow_html=True)
 
     # 헤더
     hcols = st.columns([1, 4, 2, 3, 3, 5])
@@ -302,14 +307,22 @@ if st.session_state.analyzed:
 
     for row in display_data:
         cols = st.columns([1, 4, 2, 3, 3, 5])
-        cols[0].write(f"**{row['No']}**")
-        cols[1].write(row['분석 항목'])
+        # 수정 항목: No와 항목명을 붉은색으로 표시
+        if row.get('was_corrected'):
+            cols[0].markdown(f"<span style='color:#CC0000;font-weight:bold;'>{row['No']}</span>", unsafe_allow_html=True)
+            cols[1].markdown(f"<span style='color:#CC0000;'>{row['분석 항목']}</span>", unsafe_allow_html=True)
+        else:
+            cols[0].write(f"**{row['No']}**")
+            cols[1].write(row['분석 항목'])
         if row.get('was_hold'):
             cols[2].markdown(f"<span style='background:#FFFF00;color:{row['color']};font-weight:bold;padding:2px 6px;border-radius:3px;'>{row['결과']}</span>", unsafe_allow_html=True)
         else:
             cols[2].markdown(f"<span style='color:{row['color']}; font-weight:bold;'>{row['결과']}</span>", unsafe_allow_html=True)
         cols[3].write(row['제출시기'])
-        cols[4].write(row['법적 근거'])
+        if row.get('was_corrected'):
+            cols[4].markdown(f"<span style='color:#CC0000;font-weight:bold;'>{row['법적 근거']}</span>", unsafe_allow_html=True)
+        else:
+            cols[4].write(row['법적 근거'])
         cols[5].write(row['비고'])
 
     # 대전 특화 항목 표시
@@ -370,7 +383,7 @@ if st.session_state.analyzed:
         # 저작권
         pdf.set_font("K", size=7)
         pdf.set_text_color(150, 150, 150)
-        pdf.cell(0, 5, f"Copyright © {datetime.now().year} (주)아이팝엔지니어링  |  사업승인 체크리스트 Web v8.1  |  All Rights Reserved.", ln=True, align='C')
+        pdf.cell(0, 5, f"Copyright © {datetime.now().year} (주)아이팝엔지니어링 (EYEPOP Engineering)  |  김홍정  |  사업승인 체크리스트 Web v9.0  |  All Rights Reserved.", ln=True, align='C')
         pdf.set_text_color(0, 0, 0)
         pdf.set_font("K", size=9)
         pdf.ln(2)
@@ -477,7 +490,7 @@ if st.session_state.analyzed:
     st.divider()
     pdf_bytes = make_pdf()
     st.download_button("📥 [클릭] 분석 결과 PDF 저장하기", data=bytes(pdf_bytes),
-                       file_name=f"사업승인체크리스트_v8_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                       file_name=f"사업승인체크리스트_v9_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                        mime="application/pdf", type="primary", use_container_width=True)
 else:
     st.info("👈 좌측 하단의 **[🔍 분석 실행]** 버튼을 누르시면 42개 항목 분석 결과가 여기에 출력됩니다.")
