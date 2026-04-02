@@ -414,6 +414,11 @@ hr.divider {
     <button class="btn btn-reset" onclick="resetForm()">🔄 초기화</button>
     <button class="btn btn-run" onclick="analyze()">🔍 분석 실행</button>
   </div>
+  <div class="btn-row" style="margin-top:6px;">
+    <button class="btn" style="background:#059669;color:#fff;flex:1;" onclick="saveData()">💾 저장 (.json)</button>
+    <button class="btn" style="background:#7c3aed;color:#fff;flex:1;" onclick="document.getElementById('load-input').click()">📂 불러오기</button>
+    <input type="file" id="load-input" accept=".json" style="display:none" onchange="loadData(this)">
+  </div>
   <button class="btn-print" id="btn-print" onclick="window.print()">🖨️ PDF 저장 (인쇄)</button>
 </div>
 
@@ -444,6 +449,56 @@ hr.divider {
 <div id="copyright-footer"></div>
 
 <script>
+// ── 저장 / 불러오기 ──
+function saveData() {
+  const fields = ['p_name','address','cost_opt','land_area','total_area','under_area',
+    'parking','build_coverage','floor_area_ratio','arch_area','b_floors','g_floors',
+    'max_h','depth','households','edu','heritage','landsc','under_link','urban','rail','public_inst'];
+  const data = { _ver: 1, _saved: new Date().toISOString() };
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) data[id] = el.value;
+  });
+  data.usages = Array.from(document.querySelectorAll('.usage-cb'))
+    .filter(cb => cb.checked).map(cb => cb.value);
+  const pName = (data.p_name || '사업승인').replace(/[/\\:*?"<>|]/g, '_');
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `사업승인체크_${pName}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function loadData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const fields = ['p_name','address','cost_opt','land_area','total_area','under_area',
+        'parking','build_coverage','floor_area_ratio','arch_area','b_floors','g_floors',
+        'max_h','depth','households','edu','heritage','landsc','under_link','urban','rail','public_inst'];
+      fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && data[id] !== undefined) el.value = data[id];
+      });
+      if (Array.isArray(data.usages)) {
+        document.querySelectorAll('.usage-cb').forEach(cb => {
+          cb.checked = data.usages.includes(cb.value);
+        });
+      }
+      updateDerived();
+      analyze();
+    } catch(err) {
+      alert('파일을 읽을 수 없습니다: ' + err.message);
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
 // ── 날짜 초기화 ──
 (function(){
   const now = new Date();
@@ -707,15 +762,15 @@ function analyze() {
          '사업승인 신청 전',
          `공공 30만㎡↑ / 민간 60만㎡↑ (현재: ${T.toLocaleString()}㎡, ${is_public ? '공공' : '민간'})`],
     [31, '건축물 안전영향평가',
-         (TF >= 50 || H >= 200 || (GF >= 16 && T >= 100000)) ? '가' : '부',
+         (GF >= 50 || H >= 200 || (GF >= 16 && T >= 100000)) ? '가' : '부',
          '건축법 제13조의2 + 시행령 제10조의3',
          '건축 허가 전',
-         `50층↑ OR 200m↑ OR (16층↑ AND 10만㎡↑) (현재: ${TF}층, ${H}m, ${T.toLocaleString()}㎡)`],
+         `지상 50층↑ OR 200m↑ OR (지상 16층↑ AND 10만㎡↑) (현재: 지상${GF}층, ${H}m, ${T.toLocaleString()}㎡)`],
     [32, '사전재난영향성검토',
-         (TF >= 50 || H >= 200 || is_under_link) ? '가' : '부',
+         (GF >= 50 || H >= 200 || is_under_link) ? '가' : '부',
          '초고층재난법 제6조(검토협의) + 제7조(위원회)',
          '허가등을 하기 전',
-         `50층↑ OR 200m↑ OR 지하연계복합 — 소방·재난 통합방재계획 포함 (현재: ${TF}층, ${H}m)`],
+         `지상 50층↑ OR 200m↑ OR 지하연계복합 — 소방·재난 통합방재계획 포함 (현재: 지상${GF}층, ${H}m)`],
     [33, '개발사업의 경관심의대상',
          L >= 30000 ? '가' : '부',
          '경관법 시행령 [별표]',
