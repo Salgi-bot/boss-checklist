@@ -981,16 +981,20 @@ function analyze() {
   function makeRows(data) {
     return data.map(r => {
       const bg = { target: '#EBF3FC', hold: '#FFF8EC', non: '#F8F8F8' }[r.tag];
-      const lb = r.was_corrected ? 'border-left:3px solid #CC0000;' : '';
+      const lb = r.was_corrected ? 'border-left:3px solid #3D7CC5;' : '';
       const nc = r.was_corrected ? ' class="corrected-name"' : '';
       const lc = r.was_corrected ? ' class="corrected-law"' : '';
+      const noteId = `note-${r.no}`;
+      const noteHtml = r.note.length > 55
+        ? `<div class="note-content" id="${noteId}">${escHtml(r.note)}</div><button class="note-toggle" onclick="toggleNote('${noteId}',this)">더보기 ▼</button>`
+        : escHtml(r.note);
       return `<tr style="background:${bg};${lb}">
         <td style="text-align:center;font-weight:bold;font-size:13px;">${r.no}</td>
         <td${nc}>${escHtml(r.name)}</td>
         <td style="text-align:center;">${makeBadge(r.tag, r.was_hold)}</td>
         <td style="color:#555;font-size:12px;">${escHtml(r.timing)}</td>
         <td${lc}>${escHtml(r.law)}</td>
-        <td style="color:#444;font-size:12px;">${escHtml(r.note)}</td>
+        <td style="color:#444;font-size:12px;">${noteHtml}</td>
       </tr>`;
     }).join('');
   }
