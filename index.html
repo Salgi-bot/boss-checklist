@@ -640,6 +640,19 @@ function analyze() {
 
   const _item34 = (has_gong && HH >= 300) ? '가' : '부';
 
+  // 교통영향평가 용도별 면적 기준
+  const traffic_low_uses = ['제1종 근린생활시설(일용품 소매점)', '제2종 근린생활시설(다중생활시설)', '문화 및 집회시설(동·식물원 제외)'];
+  const traffic_mid_uses = ['업무시설', '오피스텔'];
+  const has_traffic_low = usages.some(u => traffic_low_uses.includes(u));
+  const has_traffic_mid = usages.some(u => traffic_mid_uses.includes(u));
+  const traffic_th = has_traffic_low
+    ? (urban === '도시지역' ? 20000 : 30000)
+    : has_traffic_mid
+      ? (urban === '도시지역' ? 25000 : 40000)
+      : (urban === '도시지역' ? 30000 : 50000);
+  const traffic_th_lbl = traffic_th.toLocaleString();
+  const traffic_use_lbl = has_traffic_low ? '문화·판매·집회시설' : has_traffic_mid ? '업무·오피스텔' : '주거시설';
+
   // ── 42개 항목 [no, 항목명, 판정, 법적근거, 제출시기, 비고]
   const items = [
     [1,  '구조 성능기반설계',
