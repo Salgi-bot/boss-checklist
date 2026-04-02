@@ -586,6 +586,7 @@ function analyze() {
   const rail_D      = parseFloat(document.getElementById('rail').value) || 0;
   const public_inst = document.getElementById('public_inst').value;
 
+  const ST  = parseFloat(document.getElementById('unit_area').value) || T;  // 단일동 최대 연면적
   const above_area = T - U;
   const excl_area  = T - P;
   const TF = BF + GF;
