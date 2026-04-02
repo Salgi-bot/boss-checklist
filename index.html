@@ -353,7 +353,11 @@ hr.divider {
   </div>
   <div class="row-2">
     <div class="form-group"><label>최고높이(m)</label><input type="number" id="max_h" value="60" step="0.1"></div>
-    <div class="form-group"><label>굴착깊이(m)</label><input type="number" id="depth" value="12" step="0.1"></div>
+    <div class="form-group"><label>굴착깊이</label><select id="depth">
+      <option value="5">10m 미만</option>
+      <option value="15" selected>10m 이상 ~ 20m 미만</option>
+      <option value="25">20m 이상</option>
+    </select></div>
   </div>
   <div class="form-group"><label>세대수</label><input type="number" id="households" value="500"></div>
 
