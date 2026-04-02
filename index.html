@@ -397,7 +397,11 @@ hr.divider {
       <option value="도시외지역">도시외지역</option>
     </select>
   </div>
-  <div class="form-group"><label>철도거리(m)</label><input type="number" id="rail" value="0"></div>
+  <div class="form-group"><label>철도이격거리</label><select id="rail">
+    <option value="0" selected>해당없음</option>
+    <option value="15">30m 이내</option>
+    <option value="100">30m 초과</option>
+  </select></div>
   <div class="form-group">
     <label>공공기관 여부</label>
     <select id="public_inst">
