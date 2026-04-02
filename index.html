@@ -566,7 +566,8 @@ function resetForm() {
   document.getElementById('landsc').value = '해당없음';
   document.getElementById('under_link').value = '해당없음';
   document.getElementById('urban').value = '도시지역';
-  document.getElementById('rail').value = 0;
+  document.getElementById('rail').value = '0';
+  document.getElementById('unit_area').value = '100000';
   document.getElementById('public_inst').value = '민간';
   document.querySelectorAll('.usage-cb').forEach(cb => {
     cb.checked = cb.value === '공동주택(아파트)';
