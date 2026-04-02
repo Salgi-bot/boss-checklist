@@ -13,7 +13,7 @@ from fpdf import FPDF
 import os
 from datetime import datetime
 
-st.set_page_config(page_title="사업승인 체크 v9.0 | EYEPOP", layout="wide", page_icon="🏗️")
+st.set_page_config(page_title="사업승인 체크 Beta | EYEPOP", layout="wide", page_icon="🏗️")
 font_path = "fonts/NanumGothic.ttf"
 
 # ── 아이팝 CI 컬러 테마 CSS ──────────────────────────────────────────────
@@ -154,7 +154,7 @@ _footer_html = """
         var el = document.createElement('div');
         el.id = 'copyright-footer';
         el.innerHTML = 'Copyright &copy; ' + new Date().getFullYear()
-            + ' (주)아이팝엔지니어링 (EYEPOP Engineering) &nbsp;|&nbsp; 김홍정 &nbsp;|&nbsp; 사업승인 체크리스트 Web v9.0 &nbsp;|&nbsp; All Rights Reserved.';
+            + ' (주)아이팝엔지니어링 (EYEPOP Engineering) &nbsp;|&nbsp; 김홍정 &nbsp;|&nbsp; 사업승인 체크리스트 Web Beta &nbsp;|&nbsp; All Rights Reserved.';
         document.body.appendChild(el);
     }
     if(document.readyState === 'loading'){
@@ -262,7 +262,7 @@ st.markdown("""
     <div class='title'>🏗️ 사업승인 체크리스트</div>
     <div class='subtitle'>(주)아이팝엔지니어링 (EYEPOP Engineering) &nbsp;|&nbsp; 최종수정 2026-04-02 &nbsp;|&nbsp; 법적 근거 전면 검토 반영</div>
   </div>
-  <div class='version-badge'>Web v9.0</div>
+  <div class='version-badge'>Web Beta</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -520,7 +520,7 @@ if st.session_state.analyzed:
         # 저작권
         pdf.set_font("K", size=7)
         pdf.set_text_color(150, 150, 150)
-        pdf.cell(0, 5, f"Copyright © {datetime.now().year} (주)아이팝엔지니어링 (EYEPOP Engineering)  |  김홍정  |  사업승인 체크리스트 Web v9.0  |  All Rights Reserved.", ln=True, align='C')
+        pdf.cell(0, 5, f"Copyright © {datetime.now().year} (주)아이팝엔지니어링 (EYEPOP Engineering)  |  김홍정  |  사업승인 체크리스트 Web Beta  |  All Rights Reserved.", ln=True, align='C')
         pdf.set_text_color(0, 0, 0)
         pdf.set_font("K", size=9)
         pdf.ln(2)
