@@ -1063,6 +1063,17 @@ function analyze() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function toggleNote(id, btn) {
+  const el = document.getElementById(id);
+  if (el.classList.contains('expanded')) {
+    el.classList.remove('expanded');
+    btn.textContent = '더보기 ▼';
+  } else {
+    el.classList.add('expanded');
+    btn.textContent = '접기 ▲';
+  }
+}
+
 function escHtml(s) {
   return String(s)
     .replace(/&/g, '&amp;')
