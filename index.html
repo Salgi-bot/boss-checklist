@@ -606,7 +606,9 @@ function analyze() {
   const rail_D      = parseFloat(document.getElementById('rail').value) || 0;
   const public_inst = document.getElementById('public_inst').value;
 
-  const ST  = parseFloat(document.getElementById('unit_area').value) || T;  // 단일동 최대 연면적
+  const ST  = parseFloat(document.getElementById('unit_area').value) || T;
+  const depth_lbl = D >= 20 ? '20m 이상' : D >= 10 ? '10~20m' : '10m 미만';
+  const rail_lbl  = rail_D <= 0 ? '없음' : rail_D <= 30 ? '30m 이내' : '30m 초과';
   const above_area = T - U;
   const excl_area  = T - P;
   const TF = BF + GF;
