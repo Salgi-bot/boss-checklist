@@ -6,7 +6,7 @@
 <title>사업승인 체크 Beta | EYEPOP</title>
 <style>
 :root {
-  --ci-blue: #3D7CC5;
+  --ci-blue: #00709F;
   --ci-green: #6B8A28;
   --ci-gray: #888888;
   --ci-blue-light: #EBF3FC;
@@ -118,7 +118,7 @@ hr.divider {
 .btn:hover { filter: brightness(0.92); }
 .btn-reset { background: #e8ecf2; color: #444; }
 .btn-run {
-  background: linear-gradient(135deg, var(--ci-blue) 0%, #2D6CB5 100%);
+  background: linear-gradient(135deg, var(--ci-blue) 0%, #005a80 100%);
   color: white;
 }
 .btn-print {
@@ -150,7 +150,7 @@ hr.divider {
   overflow-x: auto;
 }
 .brand-header {
-  background: linear-gradient(135deg, #3D7CC5 0%, #2D6CB5 100%);
+  background: linear-gradient(135deg, #00709F 0%, #005a80 100%);
   color: white;
   padding: 14px 24px;
   border-radius: 8px;
@@ -174,13 +174,13 @@ hr.divider {
 /* info panel */
 .info-panel {
   background: linear-gradient(135deg, #EBF3FC 0%, #F2F6E8 100%);
-  border-left: 4px solid #3D7CC5;
+  border-left: 4px solid #00709F;
   padding: 16px 20px;
   border-radius: 8px;
   margin-bottom: 16px;
 }
 .info-panel .panel-title {
-  color: #3D7CC5;
+  color: #00709F;
   font-size: 15px;
   font-weight: bold;
   margin-bottom: 10px;
@@ -200,7 +200,7 @@ hr.divider {
   align-items: center;
   gap: 6px;
 }
-.chip-target { background: #3D7CC5; color: white; }
+.chip-target { background: #00709F; color: white; }
 .chip-non    { background: #888888; color: white; }
 .chip-hold   { background: #E07B00; color: white; }
 .chip-fix    { background: #CC0000; color: white; }
@@ -216,13 +216,13 @@ hr.divider {
   font-size: 12.5px;
 }
 .checklist-table th {
-  background: #3D7CC5;
+  background: #00709F;
   color: white;
   padding: 10px 8px;
   text-align: center;
   font-size: 13px;
   font-weight: bold;
-  border: 1px solid #2D6CB5;
+  border: 1px solid #005a80;
 }
 .checklist-table td {
   padding: 8px 10px;
@@ -240,7 +240,7 @@ hr.divider {
   font-weight: bold;
   white-space: nowrap;
 }
-.badge-target { background: #3D7CC5; color: white; }
+.badge-target { background: #00709F; color: white; }
 .badge-hold   { background: #E07B00; color: white; }
 .badge-non    { background: #888888; color: white; }
 .badge-hold-changed { background: #E07B00; color: white; border: 2px solid #FFD600; }
@@ -353,7 +353,7 @@ hr.divider {
 <div id="layout">
 <!-- ── SIDEBAR ── -->
 <div id="sidebar">
-  <h3>📝 기본 정보 입력</h3>
+  <h3>기본 정보 입력</h3>
   <div class="today-label" id="today-label"></div>
 
   <div class="form-group">
@@ -373,7 +373,7 @@ hr.divider {
   </div>
 
   <hr class="divider">
-  <div class="section-title">📐 면적 / 규모</div>
+  <div class="section-title">면적 / 규모</div>
   <div class="row-2">
     <div class="form-group"><label>대지면적(㎡)</label><input type="number" id="land_area" value="10000"></div>
     <div class="form-group"><label>연면적(㎡) <span style="font-size:10px;color:#888;">전체</span></label><input type="number" id="total_area" value="50000"></div>
@@ -398,7 +398,7 @@ hr.divider {
   <div class="form-group"><label>건축면적(㎡)</label><input type="number" id="arch_area" value="3000"></div>
 
   <hr class="divider">
-  <div class="section-title">🏗️ 건물 정보</div>
+  <div class="section-title">건물 정보</div>
   <div class="row-2">
     <div class="form-group"><label>지하층수</label><select id="b_floors">
       <option value="0">없음</option>
@@ -486,7 +486,7 @@ hr.divider {
     </select>
   </div>
   <div class="form-group" id="traffic_mixed_wrap" style="display:none">
-    <label style="color:#3D7CC5;font-weight:700;">복합건축물 용도별 연면적 입력 (복합산식 자동계산)</label>
+    <label style="color:#00709F;font-weight:700;">복합건축물 용도별 연면적 입력 (복합산식 자동계산)</label>
     <div style="font-size:11px;color:#888;margin-bottom:4px;">각 용도 해당 연면적 입력 → 복합산식 Σ(연면적÷기준면적)≥1.0 자동 판정</div>
     <div class="row-2">
       <div class="form-group"><label>주거 연면적(㎡)</label><input type="number" id="tm_ju" value="0" oninput="analyze()"></div>
@@ -510,7 +510,7 @@ hr.divider {
   </div>
 
   <hr class="divider">
-  <div class="section-title">🏢 용도 선택 (복수 가능)</div>
+  <div class="section-title">용도 선택 (복수 가능)</div>
   <div class="form-group">
     <label>용도 (복수 선택)</label>
     <div class="usage-wrap" id="usage-wrap">
@@ -546,7 +546,7 @@ hr.divider {
 <div id="main">
   <div class="brand-header">
     <div>
-      <div class="title">🏗️ 사업승인 체크리스트</div>
+      <div class="title">사업승인 체크리스트</div>
       <div class="subtitle">(주)아이팝엔지니어링 (EYEPOP Engineering) &nbsp;|&nbsp; 최종수정 2026-04-03 &nbsp;|&nbsp; 법적 근거 전면 검토 반영</div>
     </div>
     <div class="version-badge" style="display:flex;align-items:center;gap:4px;padding:4px 10px;">
@@ -1121,7 +1121,7 @@ function analyze() {
 
   function makeRow(r, displayNo) {
     const bg = { target: '#EBF3FC', hold: '#FFF8EC', non: '#F8F8F8' }[r.tag];
-    const lbColor = { target: '#3D7CC5', hold: '#E07B00', non: '#AAAAAA' }[r.tag];
+    const lbColor = { target: '#00709F', hold: '#E07B00', non: '#AAAAAA' }[r.tag];
     const lb = `border-left:4px solid ${lbColor};`;
     const nc = r.was_corrected ? ' class="corrected-name"' : '';
     const lc = r.was_corrected ? ' class="corrected-law"' : '';
@@ -1165,7 +1165,7 @@ function analyze() {
           gc.hold   ? `<span style="color:#B87000;">▲ ${gc.hold}건</span>` : '',
           gc.non    ? `<span style="color:#888;">✕ ${gc.non}건</span>` : ''
         ].filter(Boolean).join(' &nbsp;');
-        html.push(`<tr><td colspan="6" style="background:#E8EEF7;padding:7px 14px;font-weight:bold;font-size:13px;color:#2B527A;border-left:4px solid #3D7CC5;border-top:2px solid #B8CCE4;">${cat.icon} ${cat.name} <span style="font-weight:normal;font-size:11px;color:#666;margin-left:8px;">${grp.length}개 항목 &nbsp;${badges}</span></td></tr>`);
+        html.push(`<tr><td colspan="6" style="background:#E8EEF7;padding:7px 14px;font-weight:bold;font-size:13px;color:#2B527A;border-left:4px solid #00709F;border-top:2px solid #B8CCE4;">${cat.icon} ${cat.name} <span style="font-weight:normal;font-size:11px;color:#666;margin-left:8px;">${grp.length}개 항목 &nbsp;${badges}</span></td></tr>`);
         prevCat = cat;
       }
       html.push(makeRow(r, seq++));
