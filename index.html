@@ -572,7 +572,8 @@ hr.divider {
 function saveData() {
   const fields = ['p_name','address','cost_opt','land_area','total_area','unit_area','under_area',
     'parking','build_coverage','floor_area_ratio','arch_area','b_floors','g_floors',
-    'max_h','plan_type','depth','households','edu','heritage','landsc','under_link','urban','rail','public_inst'];
+    'max_h','plan_type','depth','households','edu','heritage','landsc','under_link','urban','rail','public_inst',
+    'traffic_zone','traffic_type','traffic_local','traffic_dev_area','tm_ju','tm_op','tm_pa'];
   const data = { _ver: 1, _saved: new Date().toISOString() };
   fields.forEach(id => {
     const el = document.getElementById(id);
