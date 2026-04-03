@@ -986,25 +986,56 @@ function analyze() {
     return `<span class="badge badge-non">✕ 비대상</span>`;
   }
 
-  function makeRows(data) {
-    return data.map(r => {
-      const bg = { target: '#EBF3FC', hold: '#FFF8EC', non: '#F8F8F8' }[r.tag];
-      const lb = r.was_corrected ? 'border-left:3px solid #3D7CC5;' : '';
-      const nc = r.was_corrected ? ' class="corrected-name"' : '';
-      const lc = r.was_corrected ? ' class="corrected-law"' : '';
-      const noteId = `note-${r.no}`;
-      const noteHtml = r.note.length > 55
-        ? `<div class="note-content" id="${noteId}">${escHtml(r.note)}</div><button class="note-toggle" onclick="toggleNote('${noteId}',this)">더보기 ▼</button>`
-        : escHtml(r.note);
-      return `<tr style="background:${bg};${lb}">
-        <td style="text-align:center;font-weight:bold;font-size:13px;">${r.no}</td>
-        <td${nc}>${escHtml(r.name)}</td>
-        <td style="text-align:center;">${makeBadge(r.tag, r.was_hold)}</td>
-        <td style="color:#555;font-size:12px;">${escHtml(r.timing)}</td>
-        <td${lc}>${escHtml(r.law)}</td>
-        <td style="color:#444;font-size:12px;">${noteHtml}</td>
-      </tr>`;
-    }).join('');
+  function makeRow(r) {
+    const bg = { target: '#EBF3FC', hold: '#FFF8EC', non: '#F8F8F8' }[r.tag];
+    const lb = r.was_corrected ? 'border-left:3px solid #3D7CC5;' : '';
+    const nc = r.was_corrected ? ' class="corrected-name"' : '';
+    const lc = r.was_corrected ? ' class="corrected-law"' : '';
+    const noteId = `note-${r.no}`;
+    const noteHtml = r.note.length > 55
+      ? `<div class="note-content" id="${noteId}">${escHtml(r.note)}</div><button class="note-toggle" onclick="toggleNote('${noteId}',this)">더보기 ▼</button>`
+      : escHtml(r.note);
+    return `<tr style="background:${bg};${lb}">
+      <td style="text-align:center;font-weight:bold;font-size:13px;">${r.no}</td>
+      <td${nc}>${escHtml(r.name)}</td>
+      <td style="text-align:center;">${makeBadge(r.tag, r.was_hold)}</td>
+      <td style="color:#555;font-size:12px;">${escHtml(r.timing)}</td>
+      <td${lc}>${escHtml(r.law)}</td>
+      <td style="color:#444;font-size:12px;">${noteHtml}</td>
+    </tr>`;
+  }
+
+  function makeRows(data, grouped = false) {
+    if (!grouped) return data.map(makeRow).join('');
+
+    // 카테고리 조회 맵
+    const noCat = {}, catIdx = {};
+    CAT_DEFS.forEach((c, i) => { catIdx[c.name] = i; c.nos.forEach(n => noCat[n] = c); });
+
+    // 카테고리 순서 → 항목 번호 순 정렬
+    const sorted = [...data].sort((a, b) => {
+      const ia = noCat[a.no] ? catIdx[noCat[a.no].name] : 99;
+      const ib = noCat[b.no] ? catIdx[noCat[b.no].name] : 99;
+      return ia !== ib ? ia - ib : a.no - b.no;
+    });
+
+    const html = []; let prevCat = null;
+    for (const r of sorted) {
+      const cat = noCat[r.no] || { name: '기타', icon: '📋' };
+      if (cat !== prevCat) {
+        const grp = sorted.filter(x => (noCat[x.no] || cat) === cat);
+        const gc = grp.reduce((a, x) => { a[x.tag] = (a[x.tag] || 0) + 1; return a; }, {});
+        const badges = [
+          gc.target ? `<span style="color:#2E6BBF;font-weight:600;">● ${gc.target}건</span>` : '',
+          gc.hold   ? `<span style="color:#B87000;">▲ ${gc.hold}건</span>` : '',
+          gc.non    ? `<span style="color:#888;">✕ ${gc.non}건</span>` : ''
+        ].filter(Boolean).join(' &nbsp;');
+        html.push(`<tr><td colspan="6" style="background:#E8EEF7;padding:7px 14px;font-weight:bold;font-size:13px;color:#2B527A;border-left:4px solid #3D7CC5;border-top:2px solid #B8CCE4;">${cat.icon} ${cat.name} <span style="font-weight:normal;font-size:11px;color:#666;margin-left:8px;">${grp.length}개 항목 &nbsp;${badges}</span></td></tr>`);
+        prevCat = cat;
+      }
+      html.push(makeRow(r));
+    }
+    return html.join('');
   }
 
   const header_row = `<tr>
