@@ -705,18 +705,43 @@ function analyze() {
 
   const _item34 = (has_gong && HH >= 300) ? '가' : '부';
 
-  // 교통영향평가 용도별 면적 기준
-  const traffic_low_uses = ['제1종 근린생활시설(일용품 소매점)', '제2종 근린생활시설(다중생활시설)', '문화 및 집회시설(동·식물원 제외)'];
-  const traffic_mid_uses = ['업무시설', '오피스텔'];
-  const has_traffic_low = usages.some(u => traffic_low_uses.includes(u));
-  const has_traffic_mid = usages.some(u => traffic_mid_uses.includes(u));
-  const traffic_th = has_traffic_low
-    ? (urban === '도시지역' ? 20000 : 30000)
-    : has_traffic_mid
-      ? (urban === '도시지역' ? 25000 : 40000)
-      : (urban === '도시지역' ? 30000 : 50000);
-  const traffic_th_lbl = traffic_th.toLocaleString();
-  const traffic_use_lbl = has_traffic_low ? '문화·판매·집회시설' : has_traffic_mid ? '업무·오피스텔' : '주거시설';
+  // 교통영향평가 (도시교통정비 촉진법 시행령 제13조의2 [별표 2])
+  const traffic_zone = document.getElementById('traffic_zone').value;
+
+  // 용도별 기준면적 (교통정비지역 / 교통권역 및 그 외)
+  // [별표2 제1호] 일반건축물 연면적 기준
+  const traffic_th_map = {
+    '주거':       { '교통정비지역': 30000, '교통권역': 50000, '그 외': 50000 },
+    '업무·오피스': { '교통정비지역': 25000, '교통권역': 40000, '그 외': 40000 },
+    '판매·집회':  { '교통정비지역': 20000, '교통권역': 30000, '그 외': 30000 },
+  };
+
+  // 각 용도 → 교통영향평가 용도군 매핑
+  const traffic_use_group = u => {
+    if (['제1종 근린생활시설(일용품 소매점)','제2종 근린생활시설(다중생활시설)','문화 및 집회시설(동·식물원 제외)'].includes(u)) return '판매·집회';
+    if (['업무시설','오피스텔'].includes(u)) return '업무·오피스';
+    return '주거';
+  };
+
+  // 복합건축물 여부 (2개 이상 다른 용도군)
+  const use_groups_set = new Set(usages.map(traffic_use_group));
+  const is_mixed_traffic = use_groups_set.size >= 2;
+
+  let traffic_result, traffic_note_detail;
+
+  if (is_mixed_traffic) {
+    // 복합산식: Σ(각 용도 연면적 / 해당 용도 기준면적) ≥ 1.0 → 대상 [별표2 비고]
+    // ※ 용도별 개별 연면적 미입력 → 보수적으로 '판단 유보' 처리
+    traffic_result = '판단 유보';
+    const groups_lbl = [...use_groups_set].join('·');
+    traffic_note_detail = `복합건축물(${groups_lbl}) — 복합산식 적용: Σ(각 용도 연면적 ÷ 해당 기준면적) ≥ 1.0 시 대상 [별표2 비고] | 용도별 연면적 분리 후 직접 산정 필요`;
+  } else {
+    // 단일 용도군
+    const single_group = [...use_groups_set][0] || '주거';
+    const traffic_th = traffic_th_map[single_group][traffic_zone];
+    traffic_result = T >= traffic_th ? '가' : '부';
+    traffic_note_detail = `[별표2 건축물] ${single_group} / ${traffic_zone} 기준 ${traffic_th.toLocaleString()}㎡↑ (연면적 기준) | 현재: ${T.toLocaleString()}㎡`;
+  }
 
   // ── 42개 항목 [no, 항목명, 판정, 법적근거, 제출시기, 비고]
   const items = [
