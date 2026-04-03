@@ -820,7 +820,7 @@ function analyze() {
          (is_edu && (ST >= 100000 || HH >= 100)) ? '가' : '부',
          '교육환경보호법 제6조·시행령 제23조',
          '사업계획 승인 전',
-         `학교 200m이내 + 단일동 연면적 10만㎡↑ 또는 100세대↑ 공동주택 (21층 초과 기준 삭제), 유치원·대안학교 포함 (현재: 단일동 ${document.getElementById('unit_area').options[document.getElementById('unit_area').selectedIndex].text}, ${HH}세대)`],
+         `학교 200m이내 + 단일동 연면적 10만㎡↑ 또는 100세대↑ 공동주택 또는 21층 이상 건축물(2026.06.03 시행), 유치원·대안학교 포함 (현재: 단일동 ${document.getElementById('unit_area').options[document.getElementById('unit_area').selectedIndex].text}, ${HH}세대)`],
     [23, '에너지소비 총량제(ECO2)',
          ((excl_area >= 3000 && usages.some(u => ['업무시설','교육연구시설(연구소·도서관 제외)'].includes(u))) || (is_public && T >= 500)) ? '가' : '부',
          '녹색건축물법 제15조 + 국토부 고시 에너지절약설계기준',
