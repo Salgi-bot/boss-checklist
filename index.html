@@ -1080,7 +1080,7 @@ function analyze() {
   document.getElementById('table-html').innerHTML = `
     <table class="checklist-table">
       <thead>${header_row}</thead>
-      <tbody>${makeRows(display_data)}</tbody>
+      <tbody>${makeRows(display_data, true)}</tbody>
     </table>`;
 
   // ── 대전 특화 ──
