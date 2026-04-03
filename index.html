@@ -1022,7 +1022,8 @@ function analyze() {
 
   function makeRow(r) {
     const bg = { target: '#EBF3FC', hold: '#FFF8EC', non: '#F8F8F8' }[r.tag];
-    const lb = r.was_corrected ? 'border-left:3px solid #3D7CC5;' : '';
+    const lbColor = { target: '#3D7CC5', hold: '#E07B00', non: '#AAAAAA' }[r.tag];
+    const lb = `border-left:4px solid ${lbColor};`;
     const nc = r.was_corrected ? ' class="corrected-name"' : '';
     const lc = r.was_corrected ? ' class="corrected-law"' : '';
     const noteId = `note-${r.no}`;
