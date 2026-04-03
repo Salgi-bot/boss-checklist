@@ -457,12 +457,43 @@ hr.divider {
     </select>
   </div>
   <div class="form-group">
-    <label>교통영향평가 지역구분 <small style="font-weight:normal;color:#888">(도시교통정비 촉진법)</small></label>
+    <label>교통영향평가 지역구분 <small style="font-weight:normal;color:#888">국토부 고시 「도시교통정비지역 및 교통권역 지정」기준 (면적 기준 아님)</small></label>
     <select id="traffic_zone">
-      <option value="교통정비지역">교통정비지역 (서울·부산·인천·대구·광주·대전·울산 등 지정지역)</option>
-      <option value="교통권역">교통권역 (교통정비지역 인접 중소도시)</option>
+      <option value="교통정비지역">교통정비지역 (서울·부산·인천·대구·광주·대전·울산 등 국토부 고시 지정)</option>
+      <option value="교통권역">교통권역 (교통정비지역 인접 중소도시 — 국토부 고시 지정)</option>
       <option value="그 외">그 외 지역</option>
     </select>
+  </div>
+  <div class="form-group">
+    <label>교통영향평가 사업유형 <small style="font-weight:normal;color:#888">[별표2] 개발사업=부지면적 / 일반건축물=연면적</small></label>
+    <select id="traffic_type">
+      <option value="일반건축물">일반건축물 (연면적 기준)</option>
+      <option value="개발사업">개발사업 — 택지개발·도시개발·지구단위계획 등 (부지면적 기준)</option>
+    </select>
+  </div>
+  <div class="form-group" id="traffic_dev_area_wrap" style="display:none">
+    <label>개발사업 부지면적(㎡) <small style="font-weight:normal;color:#888">미입력 시 대지면적 사용</small></label>
+    <input type="number" id="traffic_dev_area" placeholder="부지면적 직접 입력 (공란 시 대지면적 적용)">
+  </div>
+  <div class="form-group">
+    <label>지자체 조례 <small style="font-weight:normal;color:#888">조례 기준이 법령보다 강화 적용될 수 있음</small></label>
+    <select id="traffic_local">
+      <option value="기타">기타 (도시교통정비 촉진법 기준 적용)</option>
+      <option value="서울">서울특별시 (서울시 교통영향분석·개선대책 조례)</option>
+      <option value="대전">대전광역시 (대전시 교통영향분석·개선대책 수립에 관한 조례)</option>
+      <option value="경기">경기도 (경기도 교통영향분석·개선대책 조례)</option>
+    </select>
+  </div>
+  <div class="form-group" id="traffic_mixed_wrap" style="display:none">
+    <label style="color:#3D7CC5;font-weight:700;">복합건축물 용도별 연면적 입력 (복합산식 자동계산)</label>
+    <div style="font-size:11px;color:#888;margin-bottom:4px;">각 용도 해당 연면적 입력 → 복합산식 Σ(연면적÷기준면적)≥1.0 자동 판정</div>
+    <div class="row-2">
+      <div class="form-group"><label>주거 연면적(㎡)</label><input type="number" id="tm_ju" value="0" oninput="analyze()"></div>
+      <div class="form-group"><label>업무·오피스 연면적(㎡)</label><input type="number" id="tm_op" value="0" oninput="analyze()"></div>
+    </div>
+    <div class="row-2">
+      <div class="form-group"><label>판매·집회 연면적(㎡)</label><input type="number" id="tm_pa" value="0" oninput="analyze()"></div>
+    </div>
   </div>
   <div class="form-group"><label>철도이격거리</label><select id="rail">
     <option value="0" selected>해당없음</option>
