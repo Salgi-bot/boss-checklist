@@ -1113,7 +1113,7 @@ function analyze() {
     return `<span class="badge badge-non">✕ 비대상</span>`;
   }
 
-  function makeRow(r) {
+  function makeRow(r, displayNo) {
     const bg = { target: '#EBF3FC', hold: '#FFF8EC', non: '#F8F8F8' }[r.tag];
     const lbColor = { target: '#3D7CC5', hold: '#E07B00', non: '#AAAAAA' }[r.tag];
     const lb = `border-left:4px solid ${lbColor};`;
@@ -1124,7 +1124,7 @@ function analyze() {
       ? `<div class="note-content" id="${noteId}">${escHtml(r.note)}</div><button class="note-toggle" onclick="toggleNote('${noteId}',this)">더보기 ▼</button>`
       : escHtml(r.note);
     return `<tr style="background:${bg};${lb}">
-      <td style="text-align:center;font-weight:bold;font-size:13px;">${r.no}</td>
+      <td style="text-align:center;font-weight:bold;font-size:13px;">${displayNo ?? r.no}</td>
       <td${nc}>${escHtml(r.name)}</td>
       <td style="text-align:center;">${makeBadge(r.tag, r.was_hold)}</td>
       <td style="color:#555;font-size:12px;">${escHtml(r.timing)}</td>
@@ -1134,7 +1134,8 @@ function analyze() {
   }
 
   function makeRows(data, grouped = false) {
-    if (!grouped) return data.map(makeRow).join('');
+    let seq = 1;
+    if (!grouped) return data.map(r => makeRow(r, seq++)).join('');
 
     // 카테고리 조회 맵
     const noCat = {}, catIdx = {};
@@ -1161,7 +1162,7 @@ function analyze() {
         html.push(`<tr><td colspan="6" style="background:#E8EEF7;padding:7px 14px;font-weight:bold;font-size:13px;color:#2B527A;border-left:4px solid #3D7CC5;border-top:2px solid #B8CCE4;">${cat.icon} ${cat.name} <span style="font-weight:normal;font-size:11px;color:#666;margin-left:8px;">${grp.length}개 항목 &nbsp;${badges}</span></td></tr>`);
         prevCat = cat;
       }
-      html.push(makeRow(r));
+      html.push(makeRow(r, seq++));
     }
     return html.join('');
   }
