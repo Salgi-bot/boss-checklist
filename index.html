@@ -639,6 +639,10 @@ function updateDerived() {
 ['total_area','under_area','parking'].forEach(id => {
   document.getElementById(id).addEventListener('input', updateDerived);
 });
+// 교통영향평가 사업유형/지자체 변경 시 UI 즉시 반응
+document.getElementById('traffic_type').addEventListener('change', function() {
+  document.getElementById('traffic_dev_area_wrap').style.display = this.value === '개발사업' ? '' : 'none';
+});
 updateDerived();
 
 function fmt(n) { return Math.round(n).toLocaleString('ko-KR'); }
